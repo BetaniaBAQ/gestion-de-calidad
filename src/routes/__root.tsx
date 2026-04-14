@@ -1,4 +1,9 @@
-import { createRootRoute, Link, HeadContent, Scripts  } from '@tanstack/react-router'
+import {
+  createRootRoute,
+  Link,
+  HeadContent,
+  Scripts,
+} from '@tanstack/react-router'
 import {
   LayoutDashboard,
   Users,
