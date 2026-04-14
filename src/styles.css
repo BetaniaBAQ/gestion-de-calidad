@@ -447,32 +447,50 @@ a {
   --sidebar-ring: #4ecdc4;
 }
 
-/* ─── Fondo app: conserva el gradiente pero en paleta navy/teal ───────── */
+/* ─── Fondo app: radial gradient dentro de la familia navy ────────────── */
+body {
+  background-color: #0d1626;
+  background:
+    radial-gradient(
+      1100px 620px at -8% -10%,
+      rgba(30, 47, 74, 0.85),
+      transparent 58%
+    ),
+    radial-gradient(
+      1050px 620px at 112% -12%,
+      rgba(26, 39, 68, 0.75),
+      transparent 62%
+    ),
+    radial-gradient(
+      720px 380px at 50% 115%,
+      rgba(19, 31, 53, 0.9),
+      transparent 68%
+    ),
+    linear-gradient(180deg, #131f35 0%, #101a2e 44%, #0d1626 100%);
+}
+
 body::before {
-  opacity: 0.22;
+  opacity: 1;
   background:
     radial-gradient(
       circle at 20% 15%,
-      rgba(78, 205, 196, 0.18),
-      transparent 40%
+      rgba(30, 47, 74, 0.45),
+      transparent 34%
     ),
     radial-gradient(
       circle at 78% 26%,
-      rgba(122, 155, 190, 0.16),
-      transparent 44%
+      rgba(26, 39, 68, 0.4),
+      transparent 42%
     ),
     radial-gradient(
       circle at 42% 82%,
-      rgba(78, 205, 196, 0.12),
+      rgba(19, 31, 53, 0.55),
       transparent 40%
     );
 }
 
 body::after {
-  opacity: 0.08;
-  background-image:
-    linear-gradient(rgba(78, 205, 196, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(78, 205, 196, 0.08) 1px, transparent 1px);
+  display: none;
 }
 
 /* Mirror the same values for .dark class (shadcn expects .dark for dark mode) */
