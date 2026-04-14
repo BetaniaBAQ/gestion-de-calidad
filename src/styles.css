@@ -410,6 +410,13 @@ a {
 
 /* ─── Betania SGC Theme — always dark navy/teal ─────────────────────────── */
 :root {
+  /* Mist base (cool blue-gray) overrides the olive-tinted sand/foam gradient */
+  --sand: #1a2744;
+  --foam: #131f35;
+  --bg-base: #0d1626;
+  --hero-a: rgba(78, 205, 196, 0.18);
+  --hero-b: rgba(122, 155, 190, 0.12);
+
   --background: #0d1626;
   --foreground: #eef4fb;
   --card: #131f35;
