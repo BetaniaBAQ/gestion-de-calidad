@@ -447,14 +447,32 @@ a {
   --sidebar-ring: #4ecdc4;
 }
 
-/* ─── Fondo app: plano navy, sin gradientes heredados del tema sea-ink ─── */
-body {
-  background: var(--background);
+/* ─── Fondo app: conserva el gradiente pero en paleta navy/teal ───────── */
+body::before {
+  opacity: 0.22;
+  background:
+    radial-gradient(
+      circle at 20% 15%,
+      rgba(78, 205, 196, 0.18),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 78% 26%,
+      rgba(122, 155, 190, 0.16),
+      transparent 44%
+    ),
+    radial-gradient(
+      circle at 42% 82%,
+      rgba(78, 205, 196, 0.12),
+      transparent 40%
+    );
 }
 
-body::before,
 body::after {
-  display: none;
+  opacity: 0.08;
+  background-image:
+    linear-gradient(rgba(78, 205, 196, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78, 205, 196, 0.08) 1px, transparent 1px);
 }
 
 /* Mirror the same values for .dark class (shadcn expects .dark for dark mode) */
