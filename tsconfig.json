@@ -22,7 +22,7 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "isolatedModules": true, 
+    "isolatedModules": true,
     "noEmit": true,
 
     /* Linting */

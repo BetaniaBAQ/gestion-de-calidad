@@ -1,16 +1,20 @@
+// vite.config.ts
 import { defineConfig } from 'vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  resolve: {
+    // Reemplaza el plugin externo por la opción nativa de Vite
+    tsconfigPaths: true,
+  },
   plugins: [
-    tsconfigPaths(),
     tailwindcss(),
     tanstackStart({
-      // En la última versión, se usa 'router' para configurar directorios
       router: {
-        routesDirectory: './src/routes', // Apunta a tu carpeta de rutas en src
+        // CORRECCIÓN: Usa la ruta sin el ./ inicial o mejor aún, 
+        // define el directorio base de la app si todo está en src
+        routesDirectory: 'src/routes', 
       }
     }),
   ],
