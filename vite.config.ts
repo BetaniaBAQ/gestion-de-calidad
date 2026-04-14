@@ -1,19 +1,16 @@
-import { defineConfig } from 'vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
-import { fileURLToPath } from 'node:url'
+import viteReact from '@vitejs/plugin-react'
+import { nitro } from 'nitro/vite'
+import { defineConfig } from 'vite'
+import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig({
-  resolve: {
-    tsconfigPaths: true,
-  },
   plugins: [
+    tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),
-    tanstackStart({
-      router: {
-        // Esto garantiza que siempre busque desde la raíz del proyecto
-        routesDirectory: fileURLToPath(new URL('./src/routes', import.meta.url)),
-      },
-    }),
+    tanstackStart(),
+    nitro({ preset: 'vercel' }),
+    viteReact(),
   ],
 })

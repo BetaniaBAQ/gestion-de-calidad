@@ -1,22 +1,24 @@
 {
   "include": [
-    "src/**/*",
-    ".tanstack/**/*",
     "**/*.ts",
     "**/*.tsx",
+    "eslint.config.js",
+    "prettier.config.js",
+    "commitlint.config.ts",
     "vite.config.ts"
   ],
+
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",
     "module": "ESNext",
-    // baseUrl ha sido eliminado
+    "baseUrl": ".",
     "paths": {
       "#/*": ["./src/*"],
       "@/*": ["./src/*"]
     },
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "node"],
+    "types": ["vite/client"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -27,7 +29,10 @@
 
     /* Linting */
     "skipLibCheck": true,
-    "strict": true
-    // ... resto de tus reglas
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
   }
 }
