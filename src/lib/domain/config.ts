@@ -7,7 +7,8 @@ export function useSedes() {
 }
 
 export function useSedesActivas() {
-  return useConfigStore((s) => s.sedes.filter((x) => x.activa))
+  const sedes = useConfigStore((s) => s.sedes)
+  return sedes.filter((x) => x.activa)
 }
 
 export function useSedeActiva() {
@@ -15,8 +16,9 @@ export function useSedeActiva() {
 }
 
 export function useSedeActivaNombre() {
+  const sedes = useConfigStore((s) => s.sedes)
   const sedeActiva = useConfigStore((s) => s.sedeActiva)
-  const sede = useConfigStore((s) => s.sedes.find((x) => x.id === sedeActiva))
+  const sede = sedes.find((x) => x.id === sedeActiva)
   return sede?.nombre ?? sedeActiva
 }
 
