@@ -7,8 +7,10 @@ interface ConfigState {
   sedes: Sede[]
   usuarios: Usuario[]
   sedeActiva: string
+  vistaCompleta: boolean
   usuarioActual: Usuario | null
   setSedeActiva: (id: string) => void
+  setVistaCompleta: (v: boolean) => void
   login: (email: string, clave: string) => boolean
   logout: () => void
   addSede: (s: Sede) => void
@@ -23,8 +25,10 @@ export const useConfigStore = create<ConfigState>()(
       sedes: SEDES0,
       usuarios: USUARIOS,
       sedeActiva: 'BAQ',
+      vistaCompleta: false,
       usuarioActual: USUARIOS[0], // Default: admin for dev
       setSedeActiva: (id) => set({ sedeActiva: id }),
+      setVistaCompleta: (v) => set({ vistaCompleta: v }),
       login: (email, clave) => {
         const user = get().usuarios.find(
           (u) => u.email === email && u.clave === clave

@@ -6,6 +6,7 @@ import type {
   Cargo,
   Equipo,
   Documento,
+  Sede,
 } from './types'
 
 // Days until a future date (negative = already past)
@@ -108,6 +109,32 @@ export function scoreSede(
 
   const scores = pers.map((p) => scorePersona(p, cargos).valor)
   const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+  return {
+    valor: avg,
+    semaforo: avg >= 80 ? 'verde' : avg >= 60 ? 'amarillo' : 'rojo',
+    label: `${avg}%`,
+  }
+}
+
+// Score global across all active sedes (average of sede scores)
+export function scoreGlobal(
+  personas: Persona[],
+  cargos: Cargo[],
+  sedes: Sede[]
+): Score {
+  const activas = sedes.filter((s) => s.activa)
+  if (activas.length === 0)
+    return { valor: 0, semaforo: 'gris', label: 'Sin sedes' }
+
+  const values = activas
+    .map((s) => scoreSede(personas, cargos, s.id))
+    .filter((s) => s.semaforo !== 'gris')
+    .map((s) => s.valor)
+
+  if (values.length === 0)
+    return { valor: 0, semaforo: 'gris', label: 'Sin personal' }
+
+  const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length)
   return {
     valor: avg,
     semaforo: avg >= 80 ? 'verde' : avg >= 60 ? 'amarillo' : 'rojo',

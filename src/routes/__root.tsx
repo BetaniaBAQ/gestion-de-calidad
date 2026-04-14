@@ -1,27 +1,53 @@
 import {
   createRootRoute,
-  Link,
   HeadContent,
+  Link,
   Scripts,
+  useLocation,
 } from '@tanstack/react-router'
 import {
-  LayoutDashboard,
-  Users,
-  Stethoscope,
-  Wrench,
-  ClipboardCheck,
-  BarChart3,
-  TrendingUp,
-  Search,
-  FileText,
-  Pill,
-  GitBranch,
-  FileBarChart,
-  MessageSquare,
-  Settings,
+  BadgeCheck,
   Building2,
+  Calendar,
+  ChevronDown,
+  ClipboardCheck,
+  FileBarChart,
+  FileText,
+  GitBranch,
+  Hospital,
+  LayoutDashboard,
+  LogOut,
+  MapPin,
+  Pill,
+  PlaySquare,
+  Settings,
+  Stethoscope,
+  TrendingUp,
+  Users,
+  Wrench,
 } from 'lucide-react'
-import { useConfigStore } from '#/lib/stores/config.store'
+import type { LucideIcon } from 'lucide-react'
+import {
+  useSedes,
+  useSedeActiva,
+  useSedeActivaNombre,
+  useSetSedeActiva,
+  useVistaCompleta,
+  useSetVistaCompleta,
+  useUsuarioActual,
+  useLogout,
+  useScoreGlobal,
+} from '#/lib/domain/config'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
 import {
   Sidebar,
   SidebarContent,
@@ -35,24 +61,46 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '#/components/ui/sidebar'
+import { Toggle } from '#/components/ui/toggle'
 import appCss from '../styles.css?url'
 
-const NAV_ITEMS = [
+type NavItem = {
+  to: string
+  label: string
+  icon: LucideIcon
+}
+
+const NAV_ITEMS: readonly NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/personal', label: 'Talento Humano', icon: Users },
   { to: '/equipos', label: 'Dotación', icon: Stethoscope },
   { to: '/mantenimiento', label: 'Mantenimiento', icon: Wrench },
   { to: '/habilitacion', label: 'Habilitación', icon: ClipboardCheck },
-  { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
-  { to: '/pamec', label: 'PAMEC', icon: TrendingUp },
-  { to: '/auditoria', label: 'Auditoría', icon: Search },
-  { to: '/documentos', label: 'Documentos', icon: FileText },
-  { to: '/medicamentos', label: 'Medicamentos', icon: Pill },
-  { to: '/procesos', label: 'Procesos', icon: GitBranch },
-  { to: '/reportes', label: 'Reportes', icon: FileBarChart },
-  { to: '/pqrs', label: 'PQRS', icon: MessageSquare },
+  { to: '/indicadores', label: 'Indicadores', icon: TrendingUp },
+  { to: '/documentos', label: 'Gestión Documental', icon: FileText },
+  { to: '/medicamentos', label: 'Medicamentos y DM', icon: Pill },
+  { to: '/procesos', label: 'Procesos Prioritarios', icon: GitBranch },
+  { to: '/pamec', label: 'PAMEC', icon: BadgeCheck },
+  { to: '/auditoria', label: 'Auditoría en vivo', icon: PlaySquare },
+  { to: '/reportes', label: 'Reporte visita', icon: FileBarChart },
   { to: '/config', label: 'Configuración', icon: Settings },
 ] as const
+
+const PAGE_HEADERS: Record<string, { title: string }> = {
+  '/dashboard': { title: 'Dashboard' },
+  '/personal': { title: 'Talento Humano' },
+  '/equipos': { title: 'Dotación' },
+  '/mantenimiento': { title: 'Mantenimiento' },
+  '/habilitacion': { title: 'Habilitación' },
+  '/indicadores': { title: 'Indicadores' },
+  '/documentos': { title: 'Gestión Documental' },
+  '/medicamentos': { title: 'Medicamentos y DM' },
+  '/procesos': { title: 'Procesos Prioritarios' },
+  '/pamec': { title: 'PAMEC' },
+  '/auditoria': { title: 'Auditoría en vivo' },
+  '/reportes': { title: 'Reporte visita' },
+  '/config': { title: 'Configuración' },
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -67,9 +115,13 @@ export const Route = createRootRoute({
 })
 
 function AppSidebar() {
-  const { sedes, sedeActiva, setSedeActiva, usuarioActual } = useConfigStore()
-  const sedeNombre =
-    sedes.find((s) => s.id === sedeActiva)?.nombre ?? sedeActiva
+  const sedes = useSedes()
+  const sedeActiva = useSedeActiva()
+  const setSedeActiva = useSetSedeActiva()
+  const sedeNombre = useSedeActivaNombre()
+  const vistaCompleta = useVistaCompleta()
+  const usuarioActual = useUsuarioActual()
+  const scoreG = useScoreGlobal()
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
@@ -80,10 +132,10 @@ function AppSidebar() {
           </div>
           <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
             <span className="text-xs font-semibold text-foreground truncate">
-              SGC Betania
+              betania
             </span>
             <span className="text-xs text-muted-foreground truncate">
-              {sedeNombre}
+              SGC · HEMOFILIA
             </span>
           </div>
         </div>
@@ -91,7 +143,8 @@ function AppSidebar() {
           <select
             value={sedeActiva}
             onChange={(e) => setSedeActiva(e.target.value)}
-            className="w-full rounded-md border border-sidebar-border bg-sidebar-accent text-sidebar-foreground text-xs px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
+            disabled={vistaCompleta}
+            className="w-full rounded-md border border-sidebar-border bg-sidebar-accent text-sidebar-foreground text-xs px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
           >
             {sedes
               .filter((s) => s.activa)
@@ -128,7 +181,20 @@ function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border pt-2">
+      <SidebarFooter className="border-t border-sidebar-border pt-2 gap-3">
+        <div className="px-2 group-data-[collapsible=icon]:hidden">
+          <div className="rounded-md bg-sidebar-accent/40 px-3 py-2">
+            <div className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+              Score global
+            </div>
+            <div className="text-lg font-semibold text-foreground">
+              {scoreG.label}
+            </div>
+            <div className="text-[0.65rem] text-muted-foreground truncate">
+              {vistaCompleta ? 'Vista completa' : sedeNombre}
+            </div>
+          </div>
+        </div>
         <div className="flex items-center gap-2 px-2 py-1 group-data-[collapsible=icon]:hidden">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">
             {usuarioActual?.nombre.charAt(0) ?? 'A'}
@@ -147,6 +213,85 @@ function AppSidebar() {
   )
 }
 
+function HeaderBar() {
+  const location = useLocation()
+  const vistaCompleta = useVistaCompleta()
+  const setVistaCompleta = useSetVistaCompleta()
+  const sedeNombre = useSedeActivaNombre()
+  const usuarioActual = useUsuarioActual()
+  const logout = useLogout()
+
+  const pageHeader = PAGE_HEADERS[location.pathname] ?? { title: 'SGC' }
+
+  const fechaHoy = new Intl.DateTimeFormat('es-CO', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date())
+
+  const descriptor = vistaCompleta
+    ? 'Vista completa · Instituto Oncohematológico Betania'
+    : `${sedeNombre} · Instituto Oncohematológico Betania`
+
+  return (
+    <header className="flex h-14 items-center gap-3 border-b border-border px-4 bg-card/50 backdrop-blur-sm shrink-0">
+      <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+      <div className="flex flex-col min-w-0 flex-1">
+        <h1 className="text-sm font-semibold text-foreground leading-tight truncate">
+          {pageHeader.title}
+        </h1>
+        <p className="text-xs text-muted-foreground leading-tight truncate">
+          {descriptor}
+        </p>
+      </div>
+      <Toggle
+        aria-label="Vista completa"
+        pressed={vistaCompleta}
+        onPressedChange={setVistaCompleta}
+        className="gap-2 text-xs"
+      >
+        <Hospital className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Vista completa</span>
+      </Toggle>
+      <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Calendar className="h-3.5 w-3.5" />
+        <span>{fechaHoy}</span>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
+              {usuarioActual?.nombre.charAt(0) ?? 'U'}
+            </div>
+            <span className="hidden sm:inline text-xs font-medium">
+              {usuarioActual?.nombre ?? 'Usuario'}
+            </span>
+            <Badge variant="secondary" className="hidden md:inline capitalize">
+              {usuarioActual?.rol ?? ''}
+            </Badge>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>
+            {usuarioActual?.nombre ?? 'Usuario'}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled>
+            <MapPin className="mr-2 h-4 w-4" />
+            {sedeNombre}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={logout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Cerrar sesión
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </header>
+  )
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className="dark">
@@ -157,13 +302,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <SidebarProvider>
           <AppSidebar />
           <div className="flex flex-col flex-1 min-w-0">
-            <header className="flex h-12 items-center gap-2 border-b border-border px-4 bg-card/50 backdrop-blur-sm shrink-0">
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Building2 className="h-3 w-3" />
-                <span>Instituto Oncohematológico Betania</span>
-              </div>
-            </header>
+            <HeaderBar />
+            <div className="flex items-center gap-1 border-b border-border px-4 py-1.5 text-xs text-muted-foreground">
+              <Building2 className="h-3 w-3" />
+              <span>Instituto Oncohematológico Betania</span>
+            </div>
             <main className="flex-1 overflow-auto p-6">{children}</main>
           </div>
         </SidebarProvider>
