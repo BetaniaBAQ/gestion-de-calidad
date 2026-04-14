@@ -447,6 +447,16 @@ a {
   --sidebar-ring: #4ecdc4;
 }
 
+/* ─── Fondo app: plano navy, sin gradientes heredados del tema sea-ink ─── */
+body {
+  background: var(--background);
+}
+
+body::before,
+body::after {
+  display: none;
+}
+
 /* Mirror the same values for .dark class (shadcn expects .dark for dark mode) */
 .dark {
   --background: #0d1626;
