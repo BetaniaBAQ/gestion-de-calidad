@@ -1,222 +1,356 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
-import { Badge } from '#/components/ui/badge'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
+  GraduationCap,
+  Hospital,
+  ShieldAlert,
+  Stethoscope,
+  Users,
+} from 'lucide-react'
+import { CAPACITACIONES_PROGRAMADAS0, HAB0 } from '#/lib/data'
+import {
+  useScoreGlobal,
+  useSedeActiva,
+  useSedes,
+  useSedesActivas,
+  useVistaCompleta,
+} from '#/lib/domain/config'
+import { useDocumentos, useDocumentosVencidos } from '#/lib/domain/documentos'
+import {
+  useEquipos,
+  useEquiposProximos,
+  useEquiposVencidos,
+} from '#/lib/domain/equipos'
+import {
+  usePendientesValidacion,
+  usePersonas,
+  usePersonasTodas,
+  resolveRequisitos,
+} from '#/lib/domain/personal'
+import {
+  autoForSede,
+  computeChecklistEstado,
+  useAutoVerificacionPorSede,
+  useHabilitacionesAll,
+} from '#/lib/domain/habilitacion'
+import { scoreSede, diasHasta } from '#/lib/utils-sgc'
 import { usePersonalStore } from '#/lib/stores/personal.store'
-import { useEquiposStore } from '#/lib/stores/equipos.store'
-import { useDocumentosStore } from '#/lib/stores/documentos.store'
-import { usePamecStore } from '#/lib/stores/pamec.store'
-import { useConfigStore } from '#/lib/stores/config.store'
-import { scoreSede, semBgColor, diasHasta } from '#/lib/utils-sgc'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 
 export const Route = createFileRoute('/dashboard')({
-  component: Dashboard,
+  component: DashboardPage,
 })
 
-function Dashboard() {
-  const { personas, cargos } = usePersonalStore()
-  const { equipos } = useEquiposStore()
-  const { documentos } = useDocumentosStore()
-  const { acciones } = usePamecStore()
-  const { sedes, sedeActiva } = useConfigStore()
+function DashboardPage() {
+  const scoreG = useScoreGlobal()
+  const sedes = useSedes()
+  const sedesActivas = useSedesActivas()
+  const sedeActiva = useSedeActiva()
+  const vistaCompleta = useVistaCompleta()
 
-  const sedesActivas = sedes.filter((s) => s.activa)
+  const personasVisible = usePersonas()
+  const personasTodas = usePersonasTodas()
+  const cargos = usePersonalStore((s) => s.cargos)
 
-  // Alertas globales
-  const equiposVencidos = equipos.filter((e) => diasHasta(e.proxMant) < 0)
-  const equiposProximos = equipos.filter((e) => {
-    const d = diasHasta(e.proxMant)
-    return d >= 0 && d <= 30
-  })
-  const docsVencidos = documentos.filter((d) => {
-    if (!d.fechaVigencia) return false
-    return diasHasta(d.fechaVigencia) < 0
-  })
-  const accionesPendientes = acciones.filter(
-    (a) => a.estado === 'pendiente' || a.estado === 'en_proceso'
+  const equipos = useEquipos()
+  const equiposVencidos = useEquiposVencidos()
+  const equiposProximos = useEquiposProximos()
+
+  const documentos = useDocumentos()
+  const docsVencidos = useDocumentosVencidos()
+
+  const pendientes = usePendientesValidacion()
+  const habilitaciones = useHabilitacionesAll()
+  const autoAll = useAutoVerificacionPorSede()
+
+  // Alertas documentales cruzando personas x requisitos (por vista)
+  const alertasReq = personasVisible.flatMap((p) =>
+    resolveRequisitos(p)
+      .filter((r) => ['VENCIDO', 'CRITICO', 'SIN_CARGAR'].includes(r.estado))
+      .map((r) => ({ persona: p, ...r }))
   )
 
-  const sedeScore = scoreSede(personas, cargos, sedeActiva)
+  // Capacitaciones próximas (≤30d) o vencidas
+  const capsAtencion = CAPACITACIONES_PROGRAMADAS0.filter((c) => {
+    if (c.estado === 'ejecutada') return false
+    const d = diasHasta(c.fechaObjetivo)
+    return d < 0 || d <= 30
+  })
+
+  const personalCount = personasVisible.length
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Dashboard SGC
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Resumen del Sistema de Gestión de Calidad · Instituto Oncohematológico
-          Betania
-        </p>
+      {/* ── 6 KPI cards ──────────────────────────────────────────── */}
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+        <KpiCard
+          icon={<Hospital className="h-4 w-4" />}
+          label="SCORE GLOBAL"
+          value={scoreG.label}
+          hint={vistaCompleta ? 'Promedio todas las sedes' : 'Sede actual'}
+          accent
+        />
+        <KpiCard
+          icon={<Building2 className="h-4 w-4" />}
+          label="SEDES ACTIVAS"
+          value={sedesActivas.length.toString()}
+          hint="en operación"
+        />
+        <KpiCard
+          icon={<Users className="h-4 w-4" />}
+          label="PERSONAL"
+          value={personalCount.toString()}
+          hint="registrado"
+        />
+        <KpiCard
+          icon={<ClipboardCheck className="h-4 w-4" />}
+          label="POR VALIDAR"
+          value={pendientes.length.toString()}
+          hint="documentos cargados"
+        />
+        <KpiCard
+          icon={<ShieldAlert className="h-4 w-4" />}
+          label="ALERTAS DOCS"
+          value={alertasReq.length.toString()}
+          hint="requisitos pendientes"
+        />
+        <KpiCard
+          icon={<GraduationCap className="h-4 w-4" />}
+          label="CAPS. PRÓXIMAS"
+          value={capsAtencion.length.toString()}
+          hint="≤30 días o vencidas"
+        />
       </div>
 
-      {/* KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Cumplimiento Personal
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">
-              {sedeScore.label}
-            </div>
-            <div
-              className={`text-xs mt-1 ${semBgColor(sedeScore.semaforo)} inline-flex items-center rounded-full px-2 py-0.5`}
-            >
-              {sedeScore.semaforo}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Equipos con alertas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">
-              {equiposVencidos.length + equiposProximos.length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {equiposVencidos.length} vencidos · {equiposProximos.length}{' '}
-              próximos
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Documentos vencidos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">
-              {docsVencidos.length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              de {documentos.length} documentos totales
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Acciones PAMEC
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">
-              {accionesPendientes.length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              pendientes / en proceso
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Scores por sede */}
-      <div>
+      {/* ── PREPARACIÓN POR SEDE ────────────────────────────────── */}
+      <section>
         <h2 className="text-base font-semibold text-foreground mb-3">
-          Cumplimiento por Sede
+          Preparación por sede
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {sedesActivas.map((sede) => {
-            const score = scoreSede(personas, cargos, sede.id)
+            const score = scoreSede(personasTodas, cargos, sede.id)
+            const personalSede = personasTodas.filter((p) => p.sede === sede.id)
+            const equiposSede = equipos.filter((e) => e.sede === sede.id)
+            const hab = habilitaciones[sede.id]
+            const auto = autoForSede(autoAll, sede.id)
+            const checklistItems = computeChecklistEstado(hab, auto)
+            const cumplen = checklistItems.filter(
+              (i) => i.estado === 'cumple'
+            ).length
+            const pendientesSede = personalSede.reduce(
+              (acc, p) =>
+                acc +
+                resolveRequisitos(p).filter((r) => r.estado === 'POR_VALIDAR')
+                  .length,
+              0
+            )
+            const isActive = sede.id === sedeActiva && !vistaCompleta
             return (
               <Card
                 key={sede.id}
-                className={sede.id === sedeActiva ? 'ring-1 ring-primary' : ''}
+                className={isActive ? 'ring-1 ring-primary/70' : ''}
               >
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {sede.ciudad}
-                    </span>
-                    <Badge className={semBgColor(score.semaforo)}>
+                <CardContent className="pt-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {sede.ciudad}
+                      </div>
+                      <div className="text-[0.65rem] text-muted-foreground truncate">
+                        {sede.ciudad} · {sede.departamento ?? ''}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-sm font-semibold">
                       {score.label}
                     </Badge>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-1.5">
                     <div
-                      className="h-2 rounded-full bg-primary transition-all"
+                      className="h-1.5 rounded-full bg-primary transition-all"
                       style={{ width: `${score.valor}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {
-                      personas.filter(
-                        (p) => p.sede === sede.id && p.estado === 'activo'
-                      ).length
-                    }{' '}
-                    personas activas
-                  </p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3 w-3" /> {personalSede.length}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Stethoscope className="h-3 w-3" /> {equiposSede.length}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <ClipboardCheck className="h-3 w-3" /> {cumplen}/34
+                    </span>
+                  </div>
+                  {pendientesSede > 0 && (
+                    <div className="text-[0.65rem] text-yellow-400">
+                      {pendientesSede} por validar
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Alertas recientes */}
-      {(equiposVencidos.length > 0 ||
-        equiposProximos.length > 0 ||
-        docsVencidos.length > 0) && (
-        <div>
-          <h2 className="text-base font-semibold text-foreground mb-3">
-            Alertas Activas
+      {/* ── PENDIENTES DE VALIDACIÓN ───────────────────────────── */}
+      {pendientes.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold text-foreground mb-2 flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4 text-yellow-400" />
+            Pendientes de validación
           </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            {pendientes.length} documento
+            {pendientes.length === 1 ? '' : 's'} esperando revisión
+          </p>
           <div className="space-y-2">
-            {equiposVencidos.map((eq) => (
-              <div
-                key={eq.id}
-                className="flex items-center gap-3 rounded-lg border border-red-400/20 bg-red-400/5 px-4 py-3"
-              >
-                <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
-                <span className="text-sm text-foreground">
-                  <span className="font-medium">{eq.nombre}</span>{' '}
-                  <span className="text-muted-foreground">({eq.sede})</span> —
-                  Mantenimiento vencido
-                </span>
-              </div>
-            ))}
-            {equiposProximos.map((eq) => (
-              <div
-                key={eq.id}
-                className="flex items-center gap-3 rounded-lg border border-yellow-400/20 bg-yellow-400/5 px-4 py-3"
-              >
-                <Clock className="h-4 w-4 text-yellow-400 shrink-0" />
-                <span className="text-sm text-foreground">
-                  <span className="font-medium">{eq.nombre}</span>{' '}
-                  <span className="text-muted-foreground">({eq.sede})</span> —
-                  Mantenimiento en {diasHasta(eq.proxMant)} días
-                </span>
-              </div>
-            ))}
-            {docsVencidos.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center gap-3 rounded-lg border border-red-400/20 bg-red-400/5 px-4 py-3"
-              >
-                <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
-                <span className="text-sm text-foreground">
-                  <span className="font-medium">{doc.nombre}</span> (
-                  {doc.codigo}) — Vigencia vencida
-                </span>
-              </div>
-            ))}
+            {pendientes.slice(0, 5).map((p, i) => {
+              const sede = sedes.find((s) => s.id === p.persona.sede)
+              return (
+                <div
+                  key={`${p.persona.id}-${p.def.id}-${i}`}
+                  className="flex items-center gap-3 rounded-lg border border-yellow-400/20 bg-yellow-400/5 px-4 py-2"
+                >
+                  <Badge
+                    variant="outline"
+                    className="bg-yellow-400/20 text-yellow-400 border-yellow-400/40 text-[0.65rem]"
+                  >
+                    VALIDAR
+                  </Badge>
+                  <div className="flex-1 min-w-0 text-sm">
+                    <strong className="text-foreground">
+                      {p.persona.nombre}
+                    </strong>{' '}
+                    <span className="text-muted-foreground">
+                      — {p.def.nombre}
+                    </span>
+                    <span className="text-[0.65rem] text-muted-foreground ml-2">
+                      {sede?.ciudad}
+                    </span>
+                  </div>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/personal">
+                      Ir <ArrowRight className="h-3 w-3 ml-1" />
+                    </Link>
+                  </Button>
+                </div>
+              )
+            })}
           </div>
-        </div>
+        </section>
+      )}
+
+      {/* ── ALERTAS DOCUMENTALES ──────────────────────────────── */}
+      {alertasReq.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold text-foreground mb-2 flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-red-400" />
+            Alertas documentales
+          </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            {alertasReq.length} requisitos requieren atención
+          </p>
+          <div className="space-y-2">
+            {alertasReq.slice(0, 10).map((a, i) => {
+              const sede = sedes.find((s) => s.id === a.persona.sede)
+              const label =
+                a.estado === 'VENCIDO'
+                  ? a.fechaVigencia
+                    ? `${diasHasta(a.fechaVigencia)}d`
+                    : 'VENCIDO'
+                  : a.estado === 'POR_VALIDAR'
+                    ? 'POR VALIDAR'
+                    : 'SIN CARGAR'
+              return (
+                <div
+                  key={`${a.persona.id}-${a.def.id}-${i}`}
+                  className="flex items-center gap-3 rounded-lg border border-red-400/20 bg-red-400/5 px-4 py-2"
+                >
+                  <Badge
+                    variant="outline"
+                    className="bg-red-400/20 text-red-400 border-red-400/40 text-[0.65rem]"
+                  >
+                    {label}
+                  </Badge>
+                  <div className="flex-1 min-w-0 text-sm">
+                    <strong className="text-foreground">
+                      {a.persona.nombre}
+                    </strong>{' '}
+                    <span className="text-muted-foreground">
+                      — {a.def.nombre}
+                    </span>
+                    <span className="text-[0.65rem] text-muted-foreground ml-2">
+                      {sede?.ciudad}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── CAPACITACIONES QUE REQUIEREN ATENCIÓN ──────────── */}
+      {capsAtencion.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold text-foreground mb-2 flex items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-yellow-400" />
+            Capacitaciones que requieren atención
+          </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            {capsAtencion.length} próximas o vencidas
+          </p>
+          <div className="space-y-2">
+            {capsAtencion.map((c) => {
+              const d = diasHasta(c.fechaObjetivo)
+              const label = d < 0 ? `Vencida ${Math.abs(d)}d` : `En ${d}d`
+              const tone = d < 0 ? 'red' : 'yellow'
+              return (
+                <div
+                  key={c.id}
+                  className={`flex items-center gap-3 rounded-lg border px-4 py-2 ${
+                    tone === 'red'
+                      ? 'border-red-400/20 bg-red-400/5'
+                      : 'border-yellow-400/20 bg-yellow-400/5'
+                  }`}
+                >
+                  <Badge
+                    variant="outline"
+                    className={
+                      tone === 'red'
+                        ? 'bg-red-400/20 text-red-400 border-red-400/40 text-[0.65rem]'
+                        : 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40 text-[0.65rem]'
+                    }
+                  >
+                    {label}
+                  </Badge>
+                  <div className="flex-1 min-w-0 text-sm">
+                    <strong className="text-foreground">{c.nombre}</strong>
+                    <span className="text-[0.65rem] text-muted-foreground ml-2">
+                      {c.area} ·{' '}
+                      {new Date(c.fechaObjetivo).toLocaleDateString('es-CO')}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
       )}
 
       {equiposVencidos.length === 0 &&
         equiposProximos.length === 0 &&
-        docsVencidos.length === 0 && (
+        docsVencidos.length === 0 &&
+        alertasReq.length === 0 && (
           <div className="flex items-center gap-3 rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-4 py-3">
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             <span className="text-sm text-foreground">
@@ -225,5 +359,38 @@ function Dashboard() {
           </div>
         )}
     </div>
+  )
+}
+
+function KpiCard({
+  icon,
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+  hint: string
+  accent?: boolean
+}) {
+  return (
+    <Card className={accent ? 'border-primary/30' : ''}>
+      <CardHeader className="pb-1">
+        <CardTitle className="text-[0.65rem] font-medium text-muted-foreground flex items-center gap-1.5 uppercase tracking-wide">
+          {icon}
+          {label}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div
+          className={`text-2xl font-bold ${accent ? 'text-primary' : 'text-foreground'}`}
+        >
+          {value}
+        </div>
+        <p className="text-[0.65rem] text-muted-foreground mt-0.5">{hint}</p>
+      </CardContent>
+    </Card>
   )
 }

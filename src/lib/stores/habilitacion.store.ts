@@ -43,6 +43,6 @@ export const useHabStore = create<HabilitacionState>()(
           habilitaciones: { ...s.habilitaciones, [sedeId]: hab },
         })),
     }),
-    { name: 'sgc-habilitacion' }
+    { name: 'sgc-habilitacion', skipHydration: true }
   )
 )

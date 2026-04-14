@@ -46,6 +46,6 @@ export const useAuditoriaStore = create<AuditoriaState>()(
           ),
         })),
     }),
-    { name: 'sgc-auditoria' }
+    { name: 'sgc-auditoria', skipHydration: true }
   )
 )

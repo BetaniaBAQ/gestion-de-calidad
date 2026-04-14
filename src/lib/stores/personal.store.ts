@@ -33,6 +33,6 @@ export const usePersonalStore = create<PersonalState>()(
           cargos: s.cargos.map((x) => (x.id === id ? { ...x, ...data } : x)),
         })),
     }),
-    { name: 'sgc-personal' }
+    { name: 'sgc-personal', skipHydration: true }
   )
 )

@@ -53,6 +53,6 @@ export const useConfigStore = create<ConfigState>()(
           ),
         })),
     }),
-    { name: 'sgc-config' }
+    { name: 'sgc-config', skipHydration: true }
   )
 )

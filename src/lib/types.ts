@@ -17,12 +17,20 @@ export interface Usuario {
   clave: string
 }
 
+export type ServicioHabilitado =
+  | 'Consulta externa'
+  | 'Hematología'
+  | 'Oncología'
+  | 'Infusión IV'
+
 export interface Sede {
   id: string
   nombre: string
   ciudad: string
+  departamento?: string
   direccion: string
   activa: boolean
+  servicios?: ServicioHabilitado[]
 }
 
 export interface Cargo {
@@ -44,6 +52,7 @@ export interface Persona {
   estado: 'activo' | 'inactivo' | 'vacaciones' | 'licencia'
   docs: DocumentoPersona[]
   caps: CapacitacionPersona[]
+  requisitos?: RequisitoEstado[]
 }
 
 export interface DocumentoPersona {
@@ -173,24 +182,39 @@ export interface Hallazgo {
   estado: 'abierto' | 'cerrado' | 'vencido'
 }
 
+export type DocumentoTipo =
+  | 'procedimiento'
+  | 'instructivo'
+  | 'formato'
+  | 'politica'
+  | 'manual'
+  | 'protocolo'
+  | 'guia_practica_clinica'
+  | 'plan'
+  | 'certificado'
+  | 'poliza'
+  | 'otro'
+
+export type DocumentoEstado =
+  | 'vigente'
+  | 'obsoleto'
+  | 'en_revision'
+  | 'en_aprobacion'
+  | 'borrador'
+
 export interface Documento {
   id: string
   codigo: string
   nombre: string
-  tipo:
-    | 'procedimiento'
-    | 'instructivo'
-    | 'formato'
-    | 'politica'
-    | 'manual'
-    | 'otro'
+  tipo: DocumentoTipo
   proceso: string
   version: string
   fechaElaboracion: string
   fechaVigencia: string
   responsable: string
-  estado: 'vigente' | 'obsoleto' | 'en_revision' | 'borrador'
+  estado: DocumentoEstado
   archivo?: string
+  spLink?: string
 }
 
 export interface Medicamento {
@@ -247,6 +271,108 @@ export interface Adherencia {
   observaciones: string
   responsable: string
   fecha: string
+}
+
+// ─── SGC Betania — tipos extendidos (replica stackblitz) ─────────────────────
+
+export type EstadoRequisito =
+  | 'VIGENTE'
+  | 'POR_VALIDAR'
+  | 'SIN_CARGAR'
+  | 'VENCIDO'
+  | 'CRITICO'
+  | 'NO_APLICA'
+
+export interface RequisitoDef {
+  id: string
+  nombre: string
+  norma: string
+  categoria: 'hojas_vida' | 'normativo' | 'capacitacion' | 'vacuna'
+  critico: boolean
+}
+
+export interface RequisitoEstado {
+  defId: string
+  estado: EstadoRequisito
+  fechaVigencia?: string | null
+  observacion?: string
+}
+
+export type HabCategoria = 'rh' | 'infra' | 'dotacion' | 'procesos' | 'reps'
+
+export interface HabilitacionItemDef {
+  id: string
+  categoria: HabCategoria
+  descripcion: string
+  norma: string
+  auto: boolean
+}
+
+export interface Mantenimiento {
+  id: string
+  codigo: string
+  descripcion: string
+  tipo: 'biomedico' | 'infraestructura' | 'ti' | 'otro'
+  sedeId: string
+  area: string
+  prioridad: 'alta' | 'media' | 'baja'
+  solicitante: string
+  apertura: string
+  estado: 'abierto' | 'asignado' | 'en_ejecucion' | 'cerrado' | 'cancelado'
+}
+
+export interface AlertaSanitaria {
+  id: string
+  fecha: string
+  tipo: 'alerta_invima' | 'ram' | 'evento_ad' | 'retiro'
+  fuente: string
+  descripcion: string
+  accion?: string
+  spLink?: string
+}
+
+export interface GPC {
+  id: string
+  nombre: string
+  adherenciaPromedio: number
+  ultimaMedicion?: string
+}
+
+export interface CapacitacionProgramada {
+  id: string
+  nombre: string
+  area: string
+  fechaObjetivo: string
+  estado: 'programada' | 'ejecutada' | 'vencida'
+  sedeId?: string
+}
+
+export interface AuditoriaItemVivo {
+  id: string
+  categoria:
+    | 'talento_humano'
+    | 'equipos'
+    | 'infraestructura'
+    | 'procesos_docs'
+    | 'reps'
+    | 'seguridad_paciente'
+  descripcion: string
+  normaReferencia?: string
+}
+
+export interface AuditoriaRespuestaVivo {
+  itemId: string
+  cumple: 'si' | 'no' | 'na'
+  observacion?: string
+  foto?: string
+}
+
+export interface AuditoriaEnCurso {
+  sedeId: string
+  auditor: string
+  iniciadaEn: string
+  currentStep: number
+  respuestas: AuditoriaRespuestaVivo[]
 }
 
 // Semáforo de alertas

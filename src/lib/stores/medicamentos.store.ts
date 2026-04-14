@@ -27,6 +27,6 @@ export const useMedicamentosStore = create<MedicamentosState>()(
           medicamentos: s.medicamentos.filter((x) => x.id !== id),
         })),
     }),
-    { name: 'sgc-medicamentos' }
+    { name: 'sgc-medicamentos', skipHydration: true }
   )
 )

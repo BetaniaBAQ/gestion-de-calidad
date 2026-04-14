@@ -38,6 +38,6 @@ export const useIndicadoresStore = create<IndicadoresState>()(
           ),
         })),
     }),
-    { name: 'sgc-indicadores' }
+    { name: 'sgc-indicadores', skipHydration: true }
   )
 )

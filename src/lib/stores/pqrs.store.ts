@@ -19,6 +19,6 @@ export const usePqrsStore = create<PqrsState>()(
           pqrs: s.pqrs.map((x) => (x.id === id ? { ...x, ...data } : x)),
         })),
     }),
-    { name: 'sgc-pqrs' }
+    { name: 'sgc-pqrs', skipHydration: true }
   )
 )

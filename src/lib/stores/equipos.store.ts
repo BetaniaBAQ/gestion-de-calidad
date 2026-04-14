@@ -31,6 +31,6 @@ export const useEquiposStore = create<EquiposState>()(
           planes: s.planes.map((x) => (x.id === id ? { ...x, ...data } : x)),
         })),
     }),
-    { name: 'sgc-equipos' }
+    { name: 'sgc-equipos', skipHydration: true }
   )
 )

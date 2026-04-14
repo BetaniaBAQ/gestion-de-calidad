@@ -62,6 +62,7 @@ import {
   SidebarTrigger,
 } from '#/components/ui/sidebar'
 import { Toggle } from '#/components/ui/toggle'
+import { StoreHydrator } from '#/lib/hydration'
 import appCss from '../styles.css?url'
 
 type NavItem = {
@@ -299,6 +300,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="bg-background text-foreground antialiased">
+        <StoreHydrator />
         <SidebarProvider>
           <AppSidebar />
           <div className="flex flex-col flex-1 min-w-0">

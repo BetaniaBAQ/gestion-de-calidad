@@ -22,6 +22,6 @@ export const useAdherenciaStore = create<AdherenciaState>()(
           ),
         })),
     }),
-    { name: 'sgc-adherencia' }
+    { name: 'sgc-adherencia', skipHydration: true }
   )
 )

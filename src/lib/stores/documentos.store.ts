@@ -24,6 +24,6 @@ export const useDocumentosStore = create<DocumentosState>()(
       deleteDocumento: (id) =>
         set((s) => ({ documentos: s.documentos.filter((x) => x.id !== id) })),
     }),
-    { name: 'sgc-documentos' }
+    { name: 'sgc-documentos', skipHydration: true }
   )
 )

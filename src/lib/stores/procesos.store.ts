@@ -24,6 +24,6 @@ export const useProcesosStore = create<ProcesosState>()(
       deleteProceso: (id) =>
         set((s) => ({ procesos: s.procesos.filter((x) => x.id !== id) })),
     }),
-    { name: 'sgc-procesos' }
+    { name: 'sgc-procesos', skipHydration: true }
   )
 )

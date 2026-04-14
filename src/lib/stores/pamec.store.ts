@@ -24,6 +24,6 @@ export const usePamecStore = create<PamecState>()(
       deleteAccion: (id) =>
         set((s) => ({ acciones: s.acciones.filter((x) => x.id !== id) })),
     }),
-    { name: 'sgc-pamec' }
+    { name: 'sgc-pamec', skipHydration: true }
   )
 )
