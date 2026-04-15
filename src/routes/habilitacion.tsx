@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Circle, Minus } from 'lucide-react'
 import { KpiMeta } from '#/components/kpi-meta'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -16,20 +16,73 @@ import {
   computeChecklistEstado,
   pctChecklistCumplido,
   useAutoVerificacionPorSede,
-  useHabilitacionesAll,
+  useHabilitacionPorSede,
+  useInitSede,
+  useUpdateItem,
 } from '#/lib/domain/habilitacion'
-import type { HabCategoria, ServicioHabilitado } from '#/lib/types'
+import type { CheckEstado, HabCategoria, ServicioHabilitado } from '#/lib/types'
 
 export const Route = createFileRoute('/habilitacion')({
   component: HabilitacionPage,
 })
 
 const CATEGORIAS: Array<{ id: HabCategoria; nombre: string }> = [
-  { id: 'rh', nombre: 'RECURSO HUMANO' },
-  { id: 'infra', nombre: 'INFRAESTRUCTURA' },
-  { id: 'dotacion', nombre: 'DOTACIÓN' },
-  { id: 'procesos', nombre: 'PROCESOS' },
-  { id: 'reps', nombre: 'HABILITACIÓN REPS' },
+  { id: 'rh', nombre: 'Recurso Humano' },
+  { id: 'infra', nombre: 'Infraestructura' },
+  { id: 'dotacion', nombre: 'Dotación' },
+  { id: 'procesos', nombre: 'Procesos' },
+  { id: 'reps', nombre: 'Habilitación REPS' },
+]
+
+function estadoIcon(estado: CheckEstado | 'pendiente', auto: boolean) {
+  if (auto)
+    return <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+  if (estado === 'cumple')
+    return <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+  if (estado === 'no_cumple')
+    return <Minus className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+  if (estado === 'parcial')
+    return <Circle className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />
+  return <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5" />
+}
+
+function nextEstado(current: CheckEstado | 'pendiente'): CheckEstado {
+  if (current === 'cumple') return 'no_cumple'
+  if (current === 'no_cumple') return 'na'
+  if (current === 'na') return 'pendiente' as CheckEstado
+  return 'cumple'
+}
+
+// Upcoming visits (static calendar for the 4 sedes)
+const VISITAS = [
+  {
+    sede: 'BAQ',
+    ciudad: 'Barranquilla',
+    tipo: 'Visita de habilitación',
+    fecha: '2025-07-15',
+    estado: 'programada',
+  },
+  {
+    sede: 'SIN',
+    ciudad: 'Sincelejo',
+    tipo: 'Visita de seguimiento',
+    fecha: '2025-08-20',
+    estado: 'programada',
+  },
+  {
+    sede: 'STM',
+    ciudad: 'Santa Marta',
+    tipo: 'Visita de habilitación',
+    fecha: '2025-09-10',
+    estado: 'pendiente',
+  },
+  {
+    sede: 'MTR',
+    ciudad: 'Montería',
+    tipo: 'Visita de verificación',
+    fecha: '2025-10-05',
+    estado: 'pendiente',
+  },
 ]
 
 function HabilitacionPage() {
@@ -37,16 +90,45 @@ function HabilitacionPage() {
   const sedeActiva = useSedeActiva()
   const setSedeActiva = useSetSedeActiva()
   const setVistaCompleta = useSetVistaCompleta()
-  const habs = useHabilitacionesAll()
   const autoAll = useAutoVerificacionPorSede()
+  const updateItem = useUpdateItem()
+  const initSede = useInitSede()
 
   const sede = sedes.find((s) => s.id === sedeActiva)
-  const hab = habs[sedeActiva]
+  const hab = useHabilitacionPorSede(sedeActiva)
   const auto = autoForSede(autoAll, sedeActiva)
   const items = computeChecklistEstado(hab, auto)
   const pct = pctChecklistCumplido(hab, auto)
 
   const servicios: ServicioHabilitado[] = sede?.servicios ?? []
+
+  function toggle(
+    itemId: string,
+    isAuto: boolean,
+    currentEstado: CheckEstado | 'pendiente'
+  ) {
+    if (isAuto) return // auto items are read-only
+    if (!hab) {
+      // Initialize the sede record first
+      initSede(sedeActiva, {
+        sedeId: sedeActiva,
+        fechaRevision: new Date().toISOString().slice(0, 10),
+        responsable: '',
+        items: [
+          {
+            id: itemId,
+            criterio: '',
+            estandar: '',
+            estado: nextEstado(currentEstado),
+            observacion: '',
+          },
+        ],
+      })
+      return
+    }
+    const next = nextEstado(currentEstado)
+    updateItem(sedeActiva, itemId, { estado: next })
+  }
 
   return (
     <div className="space-y-6">
@@ -84,24 +166,42 @@ function HabilitacionPage() {
 
           {sede && (
             <Card>
-              <CardContent className="pt-4 space-y-3">
+              <CardContent className="pt-4 space-y-2">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-semibold text-foreground">
-                      {sede.ciudad}
+                      {sede.ciudad} — {sede.nombre}
                     </div>
-                    <div className="text-[0.65rem] text-muted-foreground">
-                      Servicios: {servicios.join(' · ')}
-                    </div>
+                    {servicios.length > 0 && (
+                      <div className="text-[0.65rem] text-muted-foreground mt-0.5">
+                        Servicios: {servicios.join(' · ')}
+                      </div>
+                    )}
                   </div>
-                  <Badge variant="outline" className="text-sm font-semibold">
+                  <Badge
+                    variant="outline"
+                    className="text-sm font-semibold shrink-0"
+                  >
                     {pct}% · {items.filter((i) => i.estado === 'cumple').length}
-                    /34
+                    /{items.filter((i) => i.estado !== 'na').length}
                   </Badge>
                 </div>
-                <div className="text-[0.65rem] text-muted-foreground">
-                  Auto-verificado desde el sistema · Marcado manualmente por
-                  Coordinador/Director · Pendiente
+                <div className="flex items-center gap-4 text-[0.65rem] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-primary" />{' '}
+                    Auto-verificado
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Cumple
+                    (manual)
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Minus className="h-3 w-3 text-red-400" /> No cumple
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Circle className="h-3 w-3 text-muted-foreground/40" />{' '}
+                    Pendiente
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -110,6 +210,7 @@ function HabilitacionPage() {
           {CATEGORIAS.map((cat) => {
             const catItems = items.filter((i) => i.def.categoria === cat.id)
             const cumplen = catItems.filter((i) => i.estado === 'cumple').length
+            const total = catItems.filter((i) => i.estado !== 'na').length
             return (
               <Card key={cat.id}>
                 <CardHeader className="pb-2 flex-row items-center justify-between">
@@ -118,54 +219,90 @@ function HabilitacionPage() {
                       {cat.nombre}
                     </CardTitle>
                     <div className="text-[0.65rem] text-muted-foreground mt-0.5">
-                      {cumplen}/{catItems.length}
+                      {cumplen}/{total} criterios
                     </div>
                   </div>
-                  <Button size="sm" variant="outline">
-                    Marcar manuales
-                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-1.5">
-                  {catItems.map((i) => (
-                    <div
-                      key={i.def.id}
-                      className="flex items-start gap-3 rounded-md px-3 py-2 bg-card/30 border border-border/60"
-                    >
-                      <div className="mt-0.5">
-                        {i.estado === 'cumple' ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                        ) : (
-                          <div className="h-4 w-4 rounded-full border border-muted-foreground/40" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-foreground">
-                          {i.def.descripcion}
+                  {catItems.map((i) => {
+                    const isAuto = i.def.auto && auto[i.def.id] === true
+                    return (
+                      <button
+                        key={i.def.id}
+                        type="button"
+                        disabled={isAuto}
+                        onClick={() => toggle(i.def.id, isAuto, i.estado)}
+                        className="w-full flex items-start gap-3 rounded-md px-3 py-2 bg-card/30 border border-border/60 text-left transition-colors hover:bg-card/60 disabled:cursor-default"
+                      >
+                        {estadoIcon(i.estado, isAuto)}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-foreground">
+                            {i.def.descripcion}
+                          </div>
+                          <div className="text-[0.65rem] text-muted-foreground flex items-center gap-2 mt-0.5">
+                            {isAuto && (
+                              <Badge
+                                variant="outline"
+                                className="text-[0.6rem] py-0 px-1 bg-primary/10 text-primary border-primary/20"
+                              >
+                                Auto
+                              </Badge>
+                            )}
+                            <span>{i.def.norma}</span>
+                          </div>
                         </div>
-                        <div className="text-[0.65rem] text-muted-foreground flex items-center gap-2 mt-0.5">
-                          {i.def.auto && (
-                            <Badge
-                              variant="outline"
-                              className="text-[0.6rem] py-0 px-1 bg-muted"
-                            >
-                              Auto
-                            </Badge>
-                          )}
-                          {i.def.norma}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                      </button>
+                    )
+                  })}
                 </CardContent>
               </Card>
             )
           })}
         </TabsContent>
 
-        <TabsContent value="visitas">
+        <TabsContent value="visitas" className="space-y-4">
           <Card>
-            <CardContent className="pt-6 text-sm text-muted-foreground">
-              Plan de visitas de habilitación. Detalle en próxima iteración.
+            <CardHeader>
+              <CardTitle className="text-sm">
+                Plan de visitas de habilitación 2025
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {VISITAS.map((v) => (
+                <div
+                  key={v.sede}
+                  className="flex items-center gap-4 rounded-md border border-border/60 bg-card/30 px-4 py-3"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold shrink-0">
+                    {v.sede}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground">
+                      {v.ciudad}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {v.tipo}
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground shrink-0">
+                    {new Date(v.fecha).toLocaleDateString('es-CO', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      v.estado === 'programada'
+                        ? 'bg-emerald-400/20 text-emerald-400 border-emerald-400/40'
+                        : 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40'
+                    }
+                  >
+                    {v.estado}
+                  </Badge>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
