@@ -4,7 +4,6 @@
     "**/*.tsx",
     "eslint.config.js",
     "prettier.config.js",
-    "commitlint.config.ts",
     "vite.config.ts"
   ],
 

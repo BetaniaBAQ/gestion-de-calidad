@@ -5,4 +5,5 @@ dist/
 .vinxi/
 .output/
 .vercel/
-src/routeTree.gen.ts
+.turbo/
+apps/*/src/routeTree.gen.ts
