@@ -32,7 +32,8 @@ import { Textarea } from '#/components/ui/textarea'
 import { useSedes } from '#/lib/domain/config'
 import {
   useMantenimientosTodos,
-  usePctCerradas, useMantenimientosStore 
+  usePctCerradas,
+  useMantenimientosStore,
 } from '#/lib/domain/mantenimiento'
 import type { Mantenimiento } from '#/lib/types'
 
@@ -126,7 +127,10 @@ function MantForm({
 }) {
   const [form, setForm] = useState({ ...EMPTY, ...initial })
 
-  function field<TKey extends keyof typeof EMPTY>(k: TKey, v: (typeof EMPTY)[TKey]) {
+  function field<TKey extends keyof typeof EMPTY>(
+    k: TKey,
+    v: (typeof EMPTY)[TKey]
+  ) {
     setForm((f) => ({ ...f, [k]: v }))
   }
 

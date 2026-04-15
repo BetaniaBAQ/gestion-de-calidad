@@ -86,8 +86,7 @@ function PamecPage() {
         <TabsContent value="auditorias" className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             {ESTADOS.map((e) => {
-              const label =
-                e === 'all' ? 'Todos' : estadoLabel(e)
+              const label = e === 'all' ? 'Todos' : estadoLabel(e)
               return (
                 <Button
                   key={e as string}

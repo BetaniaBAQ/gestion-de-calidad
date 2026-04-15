@@ -357,13 +357,13 @@ function AlertaForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(
-                ['alerta_invima', 'ram', 'evento_ad', 'retiro'] as const
-              ).map((t) => (
-                <SelectItem key={t} value={t}>
-                  {TIPO_ALERTA_LABELS[t]}
-                </SelectItem>
-              ))}
+              {(['alerta_invima', 'ram', 'evento_ad', 'retiro'] as const).map(
+                (t) => (
+                  <SelectItem key={t} value={t}>
+                    {TIPO_ALERTA_LABELS[t]}
+                  </SelectItem>
+                )
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -633,10 +633,7 @@ function MedicamentosPage() {
             relacionados con medicamentos y dispositivos médicos.
           </p>
           <div className="flex justify-end">
-            <Button
-              size="sm"
-              onClick={() => setAlertaDialog({ mode: 'add' })}
-            >
+            <Button size="sm" onClick={() => setAlertaDialog({ mode: 'add' })}>
               <Plus className="h-4 w-4 mr-1" /> Nueva alerta
             </Button>
           </div>
@@ -827,9 +824,7 @@ function MedicamentosPage() {
           </DialogHeader>
           {alertaDialog !== null && (
             <AlertaForm
-              initial={
-                alertaDialog.mode === 'edit' ? alertaDialog.alerta : {}
-              }
+              initial={alertaDialog.mode === 'edit' ? alertaDialog.alerta : {}}
               onSave={handleAlertaSave}
               onCancel={() => setAlertaDialog(null)}
             />

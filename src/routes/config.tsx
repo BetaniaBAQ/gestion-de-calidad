@@ -97,11 +97,7 @@ function SedeForm({
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
     const id =
-      initial.id ??
-      form.ciudad
-        .toUpperCase()
-        .slice(0, 3)
-        .replace(/\s/g, '')
+      initial.id ?? form.ciudad.toUpperCase().slice(0, 3).replace(/\s/g, '')
     onSave({ ...form, id, servicios: servicioCheck } as Sede)
   }
 
@@ -206,12 +202,8 @@ function CargoForm({
   onCancel: () => void
 }) {
   const [form, setForm] = useState({ ...CARGO_EMPTY, ...initial })
-  const [docStr, setDocStr] = useState(
-    (initial.docRequeridos ?? []).join('\n')
-  )
-  const [capStr, setCapStr] = useState(
-    (initial.capRequeridas ?? []).join('\n')
-  )
+  const [docStr, setDocStr] = useState((initial.docRequeridos ?? []).join('\n'))
+  const [capStr, setCapStr] = useState((initial.capRequeridas ?? []).join('\n'))
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
@@ -258,21 +250,19 @@ function CargoForm({
         </div>
         <div className="space-y-1">
           <Label>Documentos requeridos</Label>
-          <p className="text-[0.65rem] text-muted-foreground">
-            Uno por línea
-          </p>
+          <p className="text-[0.65rem] text-muted-foreground">Uno por línea</p>
           <Textarea
             value={docStr}
             onChange={(e) => setDocStr(e.target.value)}
             rows={4}
-            placeholder={'Hoja de vida\nTítulo profesional\nTarjeta profesional'}
+            placeholder={
+              'Hoja de vida\nTítulo profesional\nTarjeta profesional'
+            }
           />
         </div>
         <div className="space-y-1">
           <Label>Capacitaciones requeridas</Label>
-          <p className="text-[0.65rem] text-muted-foreground">
-            Una por línea
-          </p>
+          <p className="text-[0.65rem] text-muted-foreground">Una por línea</p>
           <Textarea
             value={capStr}
             onChange={(e) => setCapStr(e.target.value)}
@@ -348,7 +338,9 @@ function UsuarioForm({
           />
         </div>
         <div className="space-y-1">
-          <Label>{initial.id ? 'Nueva clave (vacío = no cambiar)' : 'Clave *'}</Label>
+          <Label>
+            {initial.id ? 'Nueva clave (vacío = no cambiar)' : 'Clave *'}
+          </Label>
           <Input
             type="password"
             value={form.clave}
@@ -603,8 +595,9 @@ function UsuariosTab() {
 
   function handleSave(u: Usuario) {
     if (dialog?.mode === 'edit') {
-      const data: Partial<Usuario> =
-        u.clave ? u : { ...u, clave: dialog.usuario.clave }
+      const data: Partial<Usuario> = u.clave
+        ? u
+        : { ...u, clave: dialog.usuario.clave }
       updateUsuario(u.id, data)
     } else {
       addUsuario(u)
@@ -653,9 +646,7 @@ function UsuariosTab() {
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
-                        onClick={() =>
-                          setDialog({ mode: 'edit', usuario: u })
-                        }
+                        onClick={() => setDialog({ mode: 'edit', usuario: u })}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -705,8 +696,8 @@ function ItemsHabilitacionTab() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Catálogo normativo (solo lectura). Actualizaciones por norma se
-        reflejan desde el código fuente.
+        Catálogo normativo (solo lectura). Actualizaciones por norma se reflejan
+        desde el código fuente.
       </p>
       <Card>
         <CardContent className="p-0">
