@@ -1,9 +1,12 @@
 node_modules/
 .env
 .env.local
+.env*.local
 dist/
 .vinxi/
 .output/
 .vercel/
 .turbo/
 apps/*/src/routeTree.gen.ts
+packages/convex/convex/_generated/
+packages/convex/convex.json
