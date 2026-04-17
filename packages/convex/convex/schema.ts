@@ -44,11 +44,13 @@ export default defineSchema({
     orgId: v.string(),
     codigo: v.string(), // MD, ENF, AUX_ENF, QF, ADM, COORD_CAL, MD_ONC, MD_GEN
     nombre: v.string(),
-    tipo: v.union(
-      v.literal('asistencial'),
-      v.literal('administrativo'),
-      v.literal('apoyo'),
-      v.literal('directivo')
+    tipo: v.optional(
+      v.union(
+        v.literal('asistencial'),
+        v.literal('administrativo'),
+        v.literal('apoyo'),
+        v.literal('directivo')
+      )
     ),
     area: v.string(),
     perfil: v.string(),

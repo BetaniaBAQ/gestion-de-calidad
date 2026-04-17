@@ -490,7 +490,7 @@ function CargosTab() {
         orgId,
         codigo: c.nombre.toUpperCase().replace(/\s+/g, '_').slice(0, 20),
         nombre: c.nombre,
-        tipo: c.tipo,
+        tipo: c.tipo ?? 'asistencial',
         area: c.area,
         perfil: c.perfil,
         docRequeridos: c.docRequeridos,

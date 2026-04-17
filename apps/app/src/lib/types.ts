@@ -38,7 +38,7 @@ export type CargoTipo = 'asistencial' | 'administrativo' | 'apoyo' | 'directivo'
 export interface Cargo {
   id: string
   nombre: string
-  tipo: CargoTipo
+  tipo?: CargoTipo
   area: string
   perfil: string
   docRequeridos: string[]

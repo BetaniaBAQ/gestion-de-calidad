@@ -761,9 +761,11 @@ export const seedBetania = mutation({
       if (!existing) {
         await ctx.db.insert('cargos', { orgId, ...cargo })
         results.cargos++
-      } else if (!existing.codigo) {
-        // Migrar cargos existentes que no tengan codigo
-        await ctx.db.patch(existing._id, { codigo: cargo.codigo })
+      } else {
+        const patch: Record<string, unknown> = {}
+        if (!existing.codigo) patch.codigo = cargo.codigo
+        if (!existing.tipo) patch.tipo = cargo.tipo
+        if (Object.keys(patch).length > 0) await ctx.db.patch(existing._id, patch)
       }
     }
 

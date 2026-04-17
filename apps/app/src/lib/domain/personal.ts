@@ -37,7 +37,7 @@ export type CargoSGC = {
   id: string // alias de codigo — usado por lookups legacy
   codigo: string
   nombre: string
-  tipo: 'asistencial' | 'administrativo' | 'apoyo' | 'directivo'
+  tipo?: 'asistencial' | 'administrativo' | 'apoyo' | 'directivo'
   area: string
   perfil: string
   docRequeridos: string[]
