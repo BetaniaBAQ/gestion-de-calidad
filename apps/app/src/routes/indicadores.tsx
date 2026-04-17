@@ -87,9 +87,7 @@ function IndicadoresPage() {
   }, [equipos])
   const pctHv = useMemo(() => {
     if (equipos.length === 0) return 0
-    return Math.round(
-      0
-    )
+    return Math.round(0)
   }, [equipos])
   const pctCerradas = usePctCerradas()
   const pctAccion = usePctConAccion()

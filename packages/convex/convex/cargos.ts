@@ -16,6 +16,12 @@ export const create = mutation({
     orgId: v.string(),
     codigo: v.string(),
     nombre: v.string(),
+    tipo: v.union(
+      v.literal('asistencial'),
+      v.literal('administrativo'),
+      v.literal('apoyo'),
+      v.literal('directivo')
+    ),
     area: v.string(),
     perfil: v.string(),
     docRequeridos: v.array(v.string()),
@@ -31,6 +37,14 @@ export const update = mutation({
     id: v.id('cargos'),
     codigo: v.optional(v.string()),
     nombre: v.optional(v.string()),
+    tipo: v.optional(
+      v.union(
+        v.literal('asistencial'),
+        v.literal('administrativo'),
+        v.literal('apoyo'),
+        v.literal('directivo')
+      )
+    ),
     area: v.optional(v.string()),
     perfil: v.optional(v.string()),
     docRequeridos: v.optional(v.array(v.string())),

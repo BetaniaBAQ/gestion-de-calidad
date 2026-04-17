@@ -119,7 +119,7 @@ function ReporteContent({
         </header>
 
         <div className="flex flex-wrap gap-1">
-          {(sede.servicios).map((s) => (
+          {sede.servicios.map((s) => (
             <Badge key={s} variant="secondary" className="text-[0.6rem]">
               {s}
             </Badge>

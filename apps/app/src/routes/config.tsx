@@ -212,6 +212,7 @@ function SedeForm({
 
 const CARGO_EMPTY: Omit<Cargo, 'id'> = {
   nombre: '',
+  tipo: 'asistencial',
   area: '',
   perfil: '',
   docRequeridos: [],
@@ -258,6 +259,25 @@ function CargoForm({
             onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
             required
           />
+        </div>
+        <div className="space-y-1">
+          <Label>Tipo</Label>
+          <Select
+            value={form.tipo}
+            onValueChange={(v) =>
+              setForm((f) => ({ ...f, tipo: v as Cargo['tipo'] }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asistencial">Asistencial</SelectItem>
+              <SelectItem value="administrativo">Administrativo</SelectItem>
+              <SelectItem value="apoyo">Apoyo</SelectItem>
+              <SelectItem value="directivo">Directivo</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label>Área</Label>
@@ -470,6 +490,7 @@ function CargosTab() {
         orgId,
         codigo: c.nombre.toUpperCase().replace(/\s+/g, '_').slice(0, 20),
         nombre: c.nombre,
+        tipo: c.tipo,
         area: c.area,
         perfil: c.perfil,
         docRequeridos: c.docRequeridos,

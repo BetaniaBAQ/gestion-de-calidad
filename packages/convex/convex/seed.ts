@@ -86,6 +86,7 @@ const CARGOS = [
   {
     codigo: 'MD',
     nombre: 'Médico Hematólogo',
+    tipo: 'asistencial' as const,
     area: 'Asistencial',
     perfil: 'Médico con especialización en hematología',
     docRequeridos: ['tarjeta_profesional', 'rethus'],
@@ -94,6 +95,7 @@ const CARGOS = [
   {
     codigo: 'MD_ONC',
     nombre: 'Médico Oncólogo',
+    tipo: 'asistencial' as const,
     area: 'Asistencial',
     perfil: 'Médico con especialización en oncología',
     docRequeridos: ['tarjeta_profesional', 'rethus'],
@@ -102,6 +104,7 @@ const CARGOS = [
   {
     codigo: 'MD_GEN',
     nombre: 'Médico General',
+    tipo: 'asistencial' as const,
     area: 'Asistencial',
     perfil: 'Médico general con experiencia en atención ambulatoria',
     docRequeridos: ['tarjeta_profesional', 'rethus'],
@@ -110,6 +113,7 @@ const CARGOS = [
   {
     codigo: 'ENF',
     nombre: 'Enfermera Jefe',
+    tipo: 'asistencial' as const,
     area: 'Asistencial',
     perfil: 'Enfermero/a profesional jefe de servicio',
     docRequeridos: ['tarjeta_profesional', 'rethus'],
@@ -118,6 +122,7 @@ const CARGOS = [
   {
     codigo: 'AUX_ENF',
     nombre: 'Auxiliar de Enfermería',
+    tipo: 'asistencial' as const,
     area: 'Asistencial',
     perfil: 'Técnico auxiliar de enfermería',
     docRequeridos: ['titulo_tecnico', 'rethus'],
@@ -126,6 +131,7 @@ const CARGOS = [
   {
     codigo: 'QF',
     nombre: 'Químico Farmacéutico',
+    tipo: 'asistencial' as const,
     area: 'Asistencial',
     perfil: 'Químico farmacéutico titulado',
     docRequeridos: ['tarjeta_profesional', 'rethus'],
@@ -134,6 +140,7 @@ const CARGOS = [
   {
     codigo: 'ADM',
     nombre: 'Auxiliar Administrativo',
+    tipo: 'administrativo' as const,
     area: 'Administrativa',
     perfil: 'Técnico o tecnólogo administrativo',
     docRequeridos: ['titulo_tecnico'],
@@ -142,6 +149,7 @@ const CARGOS = [
   {
     codigo: 'COORD_CAL',
     nombre: 'Coordinador de Calidad',
+    tipo: 'administrativo' as const,
     area: 'Calidad',
     perfil: 'Profesional de salud con formación en gestión de calidad',
     docRequeridos: ['titulo_profesional', 'tarjeta_profesional'],

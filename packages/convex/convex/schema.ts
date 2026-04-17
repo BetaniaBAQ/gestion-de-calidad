@@ -44,6 +44,12 @@ export default defineSchema({
     orgId: v.string(),
     codigo: v.string(), // MD, ENF, AUX_ENF, QF, ADM, COORD_CAL, MD_ONC, MD_GEN
     nombre: v.string(),
+    tipo: v.union(
+      v.literal('asistencial'),
+      v.literal('administrativo'),
+      v.literal('apoyo'),
+      v.literal('directivo')
+    ),
     area: v.string(),
     perfil: v.string(),
     docRequeridos: v.array(v.string()),
@@ -86,7 +92,9 @@ export default defineSchema({
       v.literal('vacaciones'),
       v.literal('licencia')
     ),
-    // Requisitos embebidos (Phase 0 — migrar a docs_personal en siguiente fase)
+    telefono: v.optional(v.string()),
+    email: v.optional(v.string()),
+    observaciones: v.optional(v.string()),
     requisitos: v.optional(v.array(v.object({
       defId: v.string(),
       estado: v.union(
@@ -99,6 +107,9 @@ export default defineSchema({
       ),
       fechaVigencia: v.optional(v.string()),
       observacion: v.optional(v.string()),
+      fileUrl: v.optional(v.string()),     // UploadThing URL del documento
+      validadoPor: v.optional(v.string()), // WorkOS userId
+      validadoEn: v.optional(v.number()),  // timestamp
     }))),
   })
     .index('by_org', ['orgId'])
@@ -319,7 +330,7 @@ export default defineSchema({
       v.literal('na')
     ),
     observacion: v.optional(v.string()),
-    evidencia: v.optional(v.string()), // URL archivo
+    evidencias: v.optional(v.array(v.string())), // URLs UploadThing (múltiples por criterio)
     revisadoPor: v.optional(v.string()),
     revisadoEn: v.optional(v.number()),
   })
@@ -550,18 +561,205 @@ export default defineSchema({
     .index('by_org_sede', ['orgId', 'sedeId']),
 
   // ── Audit trail (transiciones de estado) ────────────────────────────────
-  // Registra cada cambio de estado en cualquier entidad del sistema
   audit_trail: defineTable({
     orgId: v.string(),
-    entidad: v.string(), // "documentos", "pamec_hallazgos", etc.
-    entidadId: v.string(), // ID de la entidad
+    entidad: v.string(),
+    entidadId: v.string(),
     estadoAnterior: v.optional(v.string()),
     estadoNuevo: v.string(),
-    usuarioId: v.string(), // WorkOS user ID
+    usuarioId: v.string(),
     usuarioNombre: v.string(),
     nota: v.optional(v.string()),
-    ts: v.number(), // timestamp
+    ts: v.number(),
   })
     .index('by_org', ['orgId'])
     .index('by_entidad', ['entidad', 'entidadId']),
+
+  // ── TH: Dotación mínima por cargo y sede ────────────────────────────────
+  dotacion_minima: defineTable({
+    orgId: v.string(),
+    sedeId: v.id('sedes'),
+    cargoCodigo: v.string(),
+    minimo: v.number(),
+  })
+    .index('by_org', ['orgId'])
+    .index('by_org_sede', ['orgId', 'sedeId']),
+
+  // ── TH: Cronograma de capacitaciones ────────────────────────────────────
+  capacitaciones_programadas: defineTable({
+    orgId: v.string(),
+    sedeId: v.optional(v.id('sedes')), // null = aplica a toda la org
+    nombre: v.string(),
+    area: v.string(),
+    fechaObjetivo: v.string(),
+    responsable: v.string(),
+    estado: v.union(
+      v.literal('programada'),
+      v.literal('ejecutada'),
+      v.literal('cancelada')
+    ),
+    observaciones: v.optional(v.string()),
+    evidenciaUrl: v.optional(v.string()), // UploadThing
+  })
+    .index('by_org', ['orgId'])
+    .index('by_org_sede', ['orgId', 'sedeId']),
+
+  // ── PAMEC: Ciclos PHVA ──────────────────────────────────────────────────
+  pamec_ciclos: defineTable({
+    orgId: v.string(),
+    sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),
+    proceso: v.string(),
+    // PLANEAR
+    criterioEsperado: v.optional(v.string()),
+    indicadorMedicion: v.optional(v.string()),
+    metodologia: v.optional(v.string()),
+    // HACER — referencia a auditoría
+    auditoriaId: v.optional(v.id('pamec_auditorias')),
+    // VERIFICAR
+    analisisCausas: v.optional(v.string()),
+    herramientaAnalisis: v.optional(v.union(
+      v.literal('ishikawa'),
+      v.literal('5_porques'),
+      v.literal('pareto'),
+      v.literal('otro')
+    )),
+    // ACTUAR — referencia a acciones
+    accionesIds: v.optional(v.array(v.id('pamec_acciones'))),
+    efectividadVerificada: v.optional(v.boolean()),
+    resultadoEfectividad: v.optional(v.string()),
+    // Estado del ciclo
+    faseActual: v.union(
+      v.literal('planear'),
+      v.literal('hacer'),
+      v.literal('verificar'),
+      v.literal('actuar'),
+      v.literal('cerrado')
+    ),
+    fechaInicio: v.string(),
+    fechaCierre: v.optional(v.string()),
+  })
+    .index('by_org', ['orgId'])
+    .index('by_org_sede', ['orgId', 'sedeId'])
+    .index('by_org_fase', ['orgId', 'faseActual']),
+
+  // ── Seguridad del Paciente: Eventos adversos ────────────────────────────
+  eventos_adversos: defineTable({
+    orgId: v.string(),
+    sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),
+    // Clasificación normativa Res. 256/2016
+    tipo: v.union(
+      v.literal('incidente'),
+      v.literal('evento_adverso_prevenible'),
+      v.literal('evento_adverso_no_prevenible'),
+      v.literal('evento_centinela')
+    ),
+    fecha: v.string(),
+    hora: v.optional(v.string()),
+    servicio: v.string(),
+    descripcion: v.string(),
+    // Reporte anónimo — datos del reportante opcionales
+    reportanteNombre: v.optional(v.string()),
+    reportanteCargo: v.optional(v.string()),
+    anonimo: v.boolean(),
+    // Gestión
+    estado: v.union(
+      v.literal('reportado'),
+      v.literal('clasificado'),
+      v.literal('en_investigacion'),
+      v.literal('acciones_definidas'),
+      v.literal('en_seguimiento'),
+      v.literal('cerrado')
+    ),
+    // London Protocol (para centinela y adversos graves)
+    londonProtocol: v.optional(v.object({
+      lineaTiempo: v.optional(v.string()),
+      problemasAtencion: v.optional(v.string()),
+      factoresContributivos: v.optional(v.string()),
+      causasRaiz: v.optional(v.string()),
+      recomendaciones: v.optional(v.string()),
+      planAccion: v.optional(v.string()),
+      completado: v.boolean(),
+    })),
+    accionesIds: v.optional(v.array(v.id('pamec_acciones'))),
+    gestionadoPor: v.optional(v.string()),
+  })
+    .index('by_org', ['orgId'])
+    .index('by_org_sede', ['orgId', 'sedeId'])
+    .index('by_org_estado', ['orgId', 'estado'])
+    .index('by_org_tipo', ['orgId', 'tipo']),
+
+  // ── Proveedores y terceros ───────────────────────────────────────────────
+  proveedores: defineTable({
+    orgId: v.string(),
+    nombre: v.string(),
+    nit: v.string(),
+    tipo: v.union(
+      v.literal('servicios_salud'),
+      v.literal('suministros'),
+      v.literal('mantenimiento'),
+      v.literal('laboratorio'),
+      v.literal('otro')
+    ),
+    contacto: v.optional(v.string()),
+    telefono: v.optional(v.string()),
+    email: v.optional(v.string()),
+    activo: v.boolean(),
+    // Credenciales normativas
+    rutUrl: v.optional(v.string()),
+    camaraComercioUrl: v.optional(v.string()),
+    camaraVigencia: v.optional(v.string()),
+    habilitacionUrl: v.optional(v.string()),
+    polizaUrl: v.optional(v.string()),
+    polizaVigencia: v.optional(v.string()),
+  })
+    .index('by_org', ['orgId'])
+    .index('by_org_activo', ['orgId', 'activo']),
+
+  // ── Proveedores: Evaluaciones periódicas ────────────────────────────────
+  evaluaciones_proveedor: defineTable({
+    orgId: v.string(),
+    proveedorId: v.id('proveedores'),
+    fecha: v.string(),
+    periodo: v.string(), // "2024-Q1"
+    evaluadoPor: v.string(),
+    calidadServicio: v.number(), // 1-5
+    cumplimientoContrato: v.number(), // 1-5
+    incidentesReportados: v.number(),
+    respuestaNoConformidades: v.number(), // 1-5
+    puntajeTotal: v.number(), // promedio
+    resultado: v.union(
+      v.literal('aprobado'),
+      v.literal('aprobado_condicionado'),
+      v.literal('rechazado')
+    ),
+    observaciones: v.optional(v.string()),
+  })
+    .index('by_org', ['orgId'])
+    .index('by_proveedor', ['proveedorId']),
+
+  // ── Notificaciones in-app ────────────────────────────────────────────────
+  notificaciones: defineTable({
+    orgId: v.string(),
+    usuarioId: v.string(), // WorkOS user ID — null = broadcast a toda la org
+    tipo: v.union(
+      v.literal('vencimiento_requisito'),
+      v.literal('pqrs_vencida'),
+      v.literal('accion_vencida'),
+      v.literal('indicador_bajo_meta'),
+      v.literal('evento_adverso'),
+      v.literal('documento_por_vencer'),
+      v.literal('mantenimiento_vencido')
+    ),
+    titulo: v.string(),
+    mensaje: v.string(),
+    entidad: v.optional(v.string()),
+    entidadId: v.optional(v.string()),
+    leida: v.boolean(),
+    ts: v.number(),
+  })
+    .index('by_org', ['orgId'])
+    .index('by_usuario', ['usuarioId', 'leida'])
+    .index('by_org_leida', ['orgId', 'leida']),
 })
