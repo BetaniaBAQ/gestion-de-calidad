@@ -30,28 +30,34 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { useSedes, useVistaCompleta, useSedeActiva } from '#/lib/domain/config'
-import { equipoMantVigente, useEquipos } from '#/lib/domain/equipos'
-import { useEquiposStore } from '#/lib/stores/equipos.store'
-import type { Equipo } from '#/lib/types'
+import {
+  equipoMantVigente,
+  useEquipos,
+  useCreateEquipo,
+  useUpdateEquipo,
+  useRemoveEquipo,
+} from '#/lib/domain/equipos'
+import type { EquipoSGC } from '#/lib/domain/equipos'
+import { useOrgId } from '#/lib/org-context'
 
 export const Route = createFileRoute('/equipos')({
   component: EquiposPage,
 })
 
-const ESTADO_LABELS: Record<Equipo['estado'], string> = {
+const ESTADO_LABELS: Record<EquipoSGC['estado'], string> = {
   operativo: 'Operativo',
   mantenimiento: 'En mantenimiento',
   baja: 'Dado de baja',
   reparacion: 'En reparación',
 }
 
-const PRIORIDAD_LABELS: Record<Equipo['prioridad'], string> = {
+const PRIORIDAD_LABELS: Record<EquipoSGC['prioridad'], string> = {
   alta: 'Alta',
   media: 'Media',
   baja: 'Baja',
 }
 
-const EMPTY: Omit<Equipo, 'id'> = {
+const EMPTY: Omit<EquipoSGC, '_id' | 'id' | 'sedeId' | 'docs'> = {
   nombre: '',
   marca: '',
   modelo: '',
@@ -65,11 +71,10 @@ const EMPTY: Omit<Equipo, 'id'> = {
   invima: '',
   vida: 10,
   prioridad: 'alta',
-  docs: [],
 }
 
-function estadoBadge(estado: Equipo['estado']) {
-  const map: Record<Equipo['estado'], string> = {
+function estadoBadge(estado: EquipoSGC['estado']) {
+  const map: Record<EquipoSGC['estado'], string> = {
     operativo: 'bg-emerald-400/20 text-emerald-400 border-emerald-400/40',
     mantenimiento: 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40',
     baja: 'bg-zinc-400/20 text-zinc-400 border-zinc-400/40',
@@ -97,18 +102,20 @@ function mantBadge(vigente: boolean) {
   )
 }
 
+type EquipoFormData = Omit<EquipoSGC, '_id' | 'id' | 'sedeId' | 'docs'>
+
 function EquipoForm({
   initial,
   onSave,
   onCancel,
   sedes,
 }: {
-  initial: Omit<Equipo, 'id'> & { id?: string }
-  onSave: (e: Equipo) => void
+  initial: Partial<EquipoFormData>
+  onSave: (data: EquipoFormData) => void
   onCancel: () => void
-  sedes: { id: string; ciudad: string }[]
+  sedes: { _id: string; codigo: string; ciudad: string }[]
 }) {
-  const [form, setForm] = useState(initial)
+  const [form, setForm] = useState({ ...EMPTY, ...initial })
 
   function field(key: keyof typeof EMPTY, value: string | number) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -116,8 +123,7 @@ function EquipoForm({
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    const id = initial.id ?? `EQ-${Date.now()}`
-    onSave({ ...form, id } as Equipo)
+    onSave(form)
   }
 
   return (
@@ -169,7 +175,7 @@ function EquipoForm({
             </SelectTrigger>
             <SelectContent>
               {sedes.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
+                <SelectItem key={s._id} value={s.codigo}>
                   {s.ciudad}
                 </SelectItem>
               ))}
@@ -222,7 +228,7 @@ function EquipoForm({
           <Label>Estado</Label>
           <Select
             value={form.estado}
-            onValueChange={(v) => field('estado', v as Equipo['estado'])}
+            onValueChange={(v) => field('estado', v as EquipoSGC['estado'])}
           >
             <SelectTrigger>
               <SelectValue />
@@ -242,7 +248,9 @@ function EquipoForm({
           <Label>Prioridad</Label>
           <Select
             value={form.prioridad}
-            onValueChange={(v) => field('prioridad', v as Equipo['prioridad'])}
+            onValueChange={(v) =>
+              field('prioridad', v as EquipoSGC['prioridad'])
+            }
           >
             <SelectTrigger>
               <SelectValue />
@@ -268,53 +276,76 @@ function EquipoForm({
 }
 
 function EquiposPage() {
+  const orgId = useOrgId()
   const equipos = useEquipos()
   const sedes = useSedes()
   const vistaCompleta = useVistaCompleta()
   const sedeActiva = useSedeActiva()
-  const addEquipo = useEquiposStore((s) => s.addEquipo)
-  const updateEquipo = useEquiposStore((s) => s.updateEquipo)
-  const deleteEquipo = useEquiposStore((s) => s.deleteEquipo)
-  const planes = useEquiposStore((s) => s.planes)
+  const createEquipo = useCreateEquipo()
+  const updateEquipo = useUpdateEquipo()
+  const removeEquipo = useRemoveEquipo()
 
   const [dialog, setDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; equipo: Equipo }
+    null | { mode: 'add' } | { mode: 'edit'; equipo: EquipoSGC }
   >(null)
-  const [deleteTarget, setDeleteTarget] = useState<Equipo | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<EquipoSGC | null>(null)
 
   // KPI: % mantenimiento vigente
   const mantOk = equipos.filter(equipoMantVigente).length
   const pctMant =
     equipos.length > 0 ? Math.round((mantOk / equipos.length) * 100) : 0
 
-  // KPI: % calibración vigente (último plan calibración completado)
-  const equiposConCalib = equipos.filter((e) => {
-    const calisPlanesEquipo = planes.filter(
-      (p) =>
-        p.equipoId === e.id &&
-        p.tipo === 'calibracion' &&
-        p.estado === 'completado'
-    )
-    return calisPlanesEquipo.length > 0
-  })
-  const pctCalib =
-    equipos.length > 0
-      ? Math.round((equiposConCalib.length / equipos.length) * 100)
-      : 0
+  // KPI: % calibración vigente (planes de calibración aún no migrados → 0%)
+  const pctCalib = 0
 
-  // KPI: % HV técnicas (docs cargados)
-  const conDocs = equipos.filter((e) => e.docs.length > 0).length
-  const pctHv =
-    equipos.length > 0 ? Math.round((conDocs / equipos.length) * 100) : 0
+  // KPI: % HV técnicas (docs cargados — placeholder hasta migrar docs)
+  const pctHv = 0
 
-  function handleSave(eq: Equipo) {
-    if (dialog?.mode === 'edit') updateEquipo(eq.id, eq)
-    else addEquipo(eq)
+  async function handleSave(data: EquipoFormData) {
+    const sede = sedes.find((s) => s.codigo === data.sede)
+    if (!orgId || !sede) return
+    if (dialog?.mode === 'edit') {
+      await updateEquipo({
+        id: dialog.equipo._id,
+        sedeCodigo: data.sede,
+        sedeId: sede._id,
+        nombre: data.nombre,
+        marca: data.marca,
+        modelo: data.modelo,
+        serie: data.serie,
+        area: data.area,
+        fechaCompra: data.fechaCompra,
+        ultimaMant: data.ultimaMant || undefined,
+        proxMant: data.proxMant || undefined,
+        estado: data.estado,
+        invima: data.invima || undefined,
+        vidaUtil: data.vida,
+        prioridad: data.prioridad,
+      })
+    } else {
+      await createEquipo({
+        orgId,
+        sedeId: sede._id,
+        sedeCodigo: data.sede,
+        nombre: data.nombre,
+        marca: data.marca,
+        modelo: data.modelo,
+        serie: data.serie,
+        area: data.area,
+        fechaCompra: data.fechaCompra,
+        ultimaMant: data.ultimaMant || undefined,
+        proxMant: data.proxMant || undefined,
+        estado: data.estado,
+        invima: data.invima || undefined,
+        vidaUtil: data.vida,
+        prioridad: data.prioridad,
+      })
+    }
     setDialog(null)
   }
 
-  function handleDelete() {
-    if (deleteTarget) deleteEquipo(deleteTarget.id)
+  async function handleDelete() {
+    if (deleteTarget) await removeEquipo({ id: deleteTarget._id })
     setDeleteTarget(null)
   }
 
@@ -371,9 +402,9 @@ function EquiposPage() {
             <TableBody>
               {equipos.map((e) => {
                 const vigente = equipoMantVigente(e)
-                const sede = sedes.find((s) => s.id === e.sede)
+                const sede = sedes.find((s) => s.codigo === e.sede)
                 return (
-                  <TableRow key={e.id}>
+                  <TableRow key={e._id}>
                     <TableCell className="font-medium">{e.nombre}</TableCell>
                     <TableCell>
                       {e.marca} {e.modelo}
@@ -393,7 +424,7 @@ function EquiposPage() {
                     <TableCell>{mantBadge(vigente)}</TableCell>
                     <TableCell>{estadoBadge(e.estado)}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">
-                      {e.docs.length > 0 ? `${e.docs.length} doc(s)` : '—'}
+                      {'—'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -453,7 +484,7 @@ function EquiposPage() {
                   ? dialog.equipo
                   : { ...EMPTY, sede: defaultSede }
               }
-              onSave={handleSave}
+              onSave={(data) => void handleSave(data)}
               onCancel={() => setDialog(null)}
               sedes={sedes.filter((s) => s.activa)}
             />

@@ -200,8 +200,8 @@ export function canDo(
       equipos: ['ver', 'crear', 'editar'],
       habilitacion: ['ver', 'crear', 'editar'],
     },
-    aux_adm: {
-      personal: ['ver', 'editar'],
+    farmaceutico: {
+      medicamentos: ['ver', 'crear', 'editar'],
       documentos: ['ver'],
     },
   }

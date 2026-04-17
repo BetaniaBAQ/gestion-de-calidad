@@ -25,15 +25,15 @@ export function SedePills() {
       {sedes
         .filter((s) => s.activa)
         .map((s) => {
-          const active = !vistaCompleta && sedeActiva === s.id
+          const active = !vistaCompleta && sedeActiva === s.codigo
           return (
             <Button
-              key={s.id}
+              key={s._id}
               size="sm"
               variant={active ? 'default' : 'outline'}
               onClick={() => {
                 setVistaCompleta(false)
-                setSedeActiva(s.id)
+                setSedeActiva(s.codigo)
               }}
             >
               {s.ciudad}

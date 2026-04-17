@@ -1,14 +1,17 @@
+import { useQuery } from 'convex/react'
+import { api } from '@cualia/convex'
 import { useConfigStore } from '#/lib/stores/config.store'
-import { usePersonalStore } from '#/lib/stores/personal.store'
+import { useOrgId } from '#/lib/org-context'
 import { scoreGlobal } from '#/lib/utils-sgc'
+import { usePersonasTodas, useCargos } from '#/lib/domain/personal'
 
 export function useSedes() {
-  return useConfigStore((s) => s.sedes)
+  const orgId = useOrgId()
+  return useQuery(api.sedes.listByOrg, orgId ? { orgId } : 'skip') ?? []
 }
 
 export function useSedesActivas() {
-  const sedes = useConfigStore((s) => s.sedes)
-  return sedes.filter((x) => x.activa)
+  return useSedes().filter((s) => s.activa)
 }
 
 export function useSedeActiva() {
@@ -16,9 +19,9 @@ export function useSedeActiva() {
 }
 
 export function useSedeActivaNombre() {
-  const sedes = useConfigStore((s) => s.sedes)
+  const sedes = useSedes()
   const sedeActiva = useConfigStore((s) => s.sedeActiva)
-  const sede = sedes.find((x) => x.id === sedeActiva)
+  const sede = sedes.find((s) => s.codigo === sedeActiva)
   return sede?.nombre ?? sedeActiva
 }
 
@@ -34,17 +37,23 @@ export function useSetVistaCompleta() {
   return useConfigStore((s) => s.setVistaCompleta)
 }
 
+// Stub: el usuario activo viene de la sesión WorkOS (Route.useRouteContext().session)
+// Se mantiene para compatibilidad con rutas que todavía lo usen
 export function useUsuarioActual() {
-  return useConfigStore((s) => s.usuarioActual)
-}
-
-export function useLogout() {
-  return useConfigStore((s) => s.logout)
+  return null
 }
 
 export function useScoreGlobal() {
-  const personas = usePersonalStore((s) => s.personas)
-  const cargos = usePersonalStore((s) => s.cargos)
-  const sedes = useConfigStore((s) => s.sedes)
-  return scoreGlobal(personas, cargos, sedes)
+  const personas = usePersonasTodas()
+  const cargos = useCargos()
+  const sedes = useSedes()
+  const sedesLegacy = sedes.map((s) => ({
+    id: s.codigo,
+    nombre: s.nombre,
+    ciudad: s.ciudad,
+    departamento: s.departamento,
+    direccion: s.direccion,
+    activa: s.activa,
+  }))
+  return scoreGlobal(personas, cargos, sedesLegacy)
 }

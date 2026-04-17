@@ -1,45 +1,115 @@
-import { ALERTAS_SANITARIAS0 } from '#/lib/data'
-import type { AlertaSanitaria } from '#/lib/types'
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@cualia/convex'
+import { useOrgId } from '#/lib/org-context'
+import { useConfigStore } from '#/lib/stores/config.store'
+import type { GenericId } from 'convex/values'
 
-interface AlertasState {
-  alertas: AlertaSanitaria[]
-  addAlerta: (a: AlertaSanitaria) => void
-  updateAlerta: (id: string, data: Partial<AlertaSanitaria>) => void
-  deleteAlerta: (id: string) => void
+type MedicamentoId = GenericId<'medicamentos'>
+type SedeId = GenericId<'sedes'>
+type AlertaId = GenericId<'alertas_sanitarias'>
+
+export type MedicamentoSGC = {
+  _id: MedicamentoId
+  id: string // alias de _id
+  sedeId: SedeId
+  sede: string // sedeCodigo — usado por filtros
+  nombre: string
+  principioActivo: string
+  concentracion: string
+  forma: string
+  laboratorio: string
+  registro: string
+  lote: string
+  fechaVenc: string
+  stock: number
+  stockMinimo: number
+  condicionAlm: string
+  estado: 'activo' | 'agotado' | 'vencido' | 'suspendido'
 }
 
-export const useAlertasSanitariasStore = create<AlertasState>()(
-  persist(
-    (set) => ({
-      alertas: ALERTAS_SANITARIAS0,
-      addAlerta: (a) => set((s) => ({ alertas: [...s.alertas, a] })),
-      updateAlerta: (id, data) =>
-        set((s) => ({
-          alertas: s.alertas.map((x) => (x.id === id ? { ...x, ...data } : x)),
-        })),
-      deleteAlerta: (id) =>
-        set((s) => ({ alertas: s.alertas.filter((x) => x.id !== id) })),
-    }),
-    { name: 'sgc-alertas-sanitarias', skipHydration: true }
-  )
-)
-
-export function useAlertasSanitarias(): AlertaSanitaria[] {
-  return useAlertasSanitariasStore((s) => s.alertas)
+export type AlertaSanitariaSGC = {
+  _id: AlertaId
+  id: string // alias de _id
+  fecha: string
+  tipo: 'alerta_invima' | 'ram' | 'evento_ad' | 'retiro'
+  fuente: string
+  descripcion: string
+  accion?: string
+  spLink?: string
 }
 
-export function useUpsertAlerta() {
-  const add = useAlertasSanitariasStore((s) => s.addAlerta)
-  const update = useAlertasSanitariasStore((s) => s.updateAlerta)
-  return (a: AlertaSanitaria) => {
-    const existing = useAlertasSanitariasStore
-      .getState()
-      .alertas.find((x) => x.id === a.id)
-    if (existing) update(a.id, a)
-    else add(a)
+// ─── Medicamentos — Convex ───────────────────────────────────────────────────
+
+function useMedicamentosRaw() {
+  const orgId = useOrgId()
+  return useQuery(api.medicamentos.listByOrg, orgId ? { orgId } : 'skip') ?? []
+}
+
+function projectMedicamento(
+  doc: ReturnType<typeof useMedicamentosRaw>[number]
+): MedicamentoSGC {
+  return {
+    ...doc,
+    id: doc._id,
+    sede: doc.sedeCodigo,
   }
+}
+
+export function useMedicamentos(): MedicamentoSGC[] {
+  const all = useMedicamentosRaw().map(projectMedicamento)
+  const sedeActiva = useConfigStore((s) => s.sedeActiva)
+  const vistaCompleta = useConfigStore((s) => s.vistaCompleta)
+  return vistaCompleta ? all : all.filter((m) => m.sede === sedeActiva)
+}
+
+export function useMedicamentosTodos(): MedicamentoSGC[] {
+  return useMedicamentosRaw().map(projectMedicamento)
+}
+
+export function useCreateMedicamento() {
+  return useMutation(api.medicamentos.create)
+}
+
+export function useUpdateMedicamento() {
+  return useMutation(api.medicamentos.update)
+}
+
+export function useRemoveMedicamento() {
+  return useMutation(api.medicamentos.remove)
+}
+
+// ─── Alertas sanitarias — Convex ─────────────────────────────────────────────
+
+function useAlertasRaw() {
+  const orgId = useOrgId()
+  return (
+    useQuery(api.alertas_sanitarias.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  )
+}
+
+function projectAlerta(
+  doc: ReturnType<typeof useAlertasRaw>[number]
+): AlertaSanitariaSGC {
+  return {
+    ...doc,
+    id: doc._id,
+  }
+}
+
+export function useAlertasSanitarias(): AlertaSanitariaSGC[] {
+  return useAlertasRaw().map(projectAlerta)
+}
+
+export function useCreateAlerta() {
+  return useMutation(api.alertas_sanitarias.create)
+}
+
+export function useUpdateAlerta() {
+  return useMutation(api.alertas_sanitarias.update)
+}
+
+export function useRemoveAlerta() {
+  return useMutation(api.alertas_sanitarias.remove)
 }
 
 export function usePctConAccion(): number {

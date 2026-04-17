@@ -5,7 +5,7 @@ export type Rol =
   | 'calidad'
   | 'director'
   | 'coordinador'
-  | 'aux_adm'
+  | 'farmaceutico'
   | 'view'
 
 export interface Usuario {

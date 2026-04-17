@@ -1,6 +1,6 @@
 import { HABILITACION_CATALOGO } from '#/lib/data-catalogs'
 import { useHabStore } from '#/lib/stores/habilitacion.store'
-import { useEquiposStore } from '#/lib/stores/equipos.store'
+import { useEquipos } from '#/lib/domain/equipos'
 import type {
   CheckEstado,
   Habilitacion,
@@ -17,7 +17,7 @@ export function useHabilitacionPorSede(
   return useHabStore((s) => s.habilitaciones[sedeId])
 }
 
-export function useHabilitacionesAll(): Record<string, Habilitacion> {
+export function useHabilitacionesAll(): Partial<Record<string, Habilitacion>> {
   return useHabStore((s) => s.habilitaciones)
 }
 
@@ -34,7 +34,7 @@ export function useAutoVerificacionPorSede(): Record<
   string,
   Record<string, boolean>
 > {
-  const equipos = useEquiposStore((s) => s.equipos)
+  const equipos = useEquipos()
   const bySede: Record<string, Record<string, boolean>> = {}
   for (const e of equipos) {
     const current = bySede[e.sede] ?? {

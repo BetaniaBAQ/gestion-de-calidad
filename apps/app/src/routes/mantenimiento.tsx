@@ -30,12 +30,15 @@ import {
 } from '#/components/ui/table'
 import { Textarea } from '#/components/ui/textarea'
 import { useSedes } from '#/lib/domain/config'
+import { useOrgId } from '#/lib/org-context'
 import {
   useMantenimientosTodos,
   usePctCerradas,
-  useMantenimientosStore,
+  useCreateMantenimiento,
+  useUpdateMantenimiento,
+  useRemoveMantenimiento,
 } from '#/lib/domain/mantenimiento'
-import type { Mantenimiento } from '#/lib/types'
+import type { MantenimientoSGC } from '#/lib/domain/mantenimiento'
 
 export const Route = createFileRoute('/mantenimiento')({
   component: MantenimientoPage,
@@ -50,18 +53,25 @@ const ESTADOS = [
   'cancelado',
 ] as const
 
-function tipoLabel(t: Mantenimiento['tipo']): string {
-  const map: Record<Mantenimiento['tipo'], string> = {
+type MantEstado = MantenimientoSGC['estado']
+type MantTipo = MantenimientoSGC['tipo']
+type MantPrioridad = MantenimientoSGC['prioridad']
+
+function tipoLabel(t: MantTipo): string {
+  const map: Record<MantTipo, string> = {
     biomedico: 'Biomédico',
     infraestructura: 'Infraestructura',
     ti: 'TI / Sistemas',
+    preventivo: 'Preventivo',
+    correctivo: 'Correctivo',
+    calibracion: 'Calibración',
     otro: 'Otro',
   }
   return map[t]
 }
 
-function estadoLabel(e: Mantenimiento['estado']): string {
-  const map: Record<Mantenimiento['estado'], string> = {
+function estadoLabel(e: MantEstado): string {
+  const map: Record<MantEstado, string> = {
     abierto: 'Abierto',
     asignado: 'Asignado',
     en_ejecucion: 'En ejecución',
@@ -71,8 +81,8 @@ function estadoLabel(e: Mantenimiento['estado']): string {
   return map[e]
 }
 
-function EstadoBadge({ estado }: { estado: Mantenimiento['estado'] }) {
-  const cls: Record<Mantenimiento['estado'], string> = {
+function EstadoBadge({ estado }: { estado: MantEstado }) {
+  const cls: Record<MantEstado, string> = {
     abierto: 'bg-red-400/20 text-red-400 border-red-400/40',
     asignado: 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40',
     en_ejecucion: 'bg-blue-400/20 text-blue-400 border-blue-400/40',
@@ -86,12 +96,8 @@ function EstadoBadge({ estado }: { estado: Mantenimiento['estado'] }) {
   )
 }
 
-function PrioridadBadge({
-  prioridad,
-}: {
-  prioridad: Mantenimiento['prioridad']
-}) {
-  const cls: Record<Mantenimiento['prioridad'], string> = {
+function PrioridadBadge({ prioridad }: { prioridad: MantPrioridad }) {
+  const cls: Record<MantPrioridad, string> = {
     alta: 'bg-red-400/20 text-red-400 border-red-400/40',
     media: 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40',
     baja: 'bg-zinc-400/20 text-zinc-400 border-zinc-400/40',
@@ -103,10 +109,22 @@ function PrioridadBadge({
   )
 }
 
-const EMPTY: Omit<Mantenimiento, 'id' | 'codigo'> = {
+// FormData uses sedeCodigo as string (looked up to sedeId on save)
+type MantFormData = {
+  descripcion: string
+  tipo: MantTipo
+  sedeCodigo: string
+  area: string
+  prioridad: MantPrioridad
+  solicitante: string
+  apertura: string
+  estado: MantEstado
+}
+
+const EMPTY: MantFormData = {
   descripcion: '',
   tipo: 'biomedico',
-  sedeId: 'BAQ',
+  sedeCodigo: 'BAQ',
   area: '',
   prioridad: 'media',
   solicitante: '',
@@ -120,25 +138,23 @@ function MantForm({
   onCancel,
   sedes,
 }: {
-  initial: Partial<Mantenimiento>
-  onSave: (m: Mantenimiento) => void
+  initial: Partial<MantFormData>
+  onSave: (m: MantFormData) => void
   onCancel: () => void
-  sedes: { id: string; ciudad: string }[]
+  sedes: { _id: string; codigo: string; ciudad: string }[]
 }) {
-  const [form, setForm] = useState({ ...EMPTY, ...initial })
+  const [form, setForm] = useState<MantFormData>({ ...EMPTY, ...initial })
 
-  function field<TKey extends keyof typeof EMPTY>(
+  function field<TKey extends keyof MantFormData>(
     k: TKey,
-    v: (typeof EMPTY)[TKey]
+    v: MantFormData[TKey]
   ) {
     setForm((f) => ({ ...f, [k]: v }))
   }
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    const id = initial.id ?? `MNT-${Date.now()}`
-    const codigo = initial.codigo ?? id
-    onSave({ ...form, id, codigo } as Mantenimiento)
+    onSave(form)
   }
 
   return (
@@ -157,7 +173,7 @@ function MantForm({
           <Label>Tipo *</Label>
           <Select
             value={form.tipo}
-            onValueChange={(v) => field('tipo', v as Mantenimiento['tipo'])}
+            onValueChange={(v) => field('tipo', v as MantTipo)}
           >
             <SelectTrigger>
               <SelectValue />
@@ -173,13 +189,16 @@ function MantForm({
         </div>
         <div className="space-y-1">
           <Label>Sede *</Label>
-          <Select value={form.sedeId} onValueChange={(v) => field('sedeId', v)}>
+          <Select
+            value={form.sedeCodigo}
+            onValueChange={(v) => field('sedeCodigo', v)}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {sedes.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
+                <SelectItem key={s._id} value={s.codigo}>
                   {s.ciudad}
                 </SelectItem>
               ))}
@@ -197,9 +216,7 @@ function MantForm({
           <Label>Prioridad</Label>
           <Select
             value={form.prioridad}
-            onValueChange={(v) =>
-              field('prioridad', v as Mantenimiento['prioridad'])
-            }
+            onValueChange={(v) => field('prioridad', v as MantPrioridad)}
           >
             <SelectTrigger>
               <SelectValue />
@@ -228,14 +245,12 @@ function MantForm({
             onChange={(e) => field('apertura', e.target.value)}
           />
         </div>
-        {initial.id && (
+        {(initial as Partial<MantenimientoSGC>)._id && (
           <div className="space-y-1">
             <Label>Estado</Label>
             <Select
               value={form.estado}
-              onValueChange={(v) =>
-                field('estado', v as Mantenimiento['estado'])
-              }
+              onValueChange={(v) => field('estado', v as MantEstado)}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -265,24 +280,23 @@ function MantenimientoPage() {
   const all = useMantenimientosTodos()
   const sedes = useSedes()
   const pctCerradas = usePctCerradas()
-  const addMantenimiento = useMantenimientosStore((s) => s.addMantenimiento)
-  const updateMantenimiento = useMantenimientosStore(
-    (s) => s.updateMantenimiento
-  )
-  const deleteMantenimiento = useMantenimientosStore(
-    (s) => s.deleteMantenimiento
-  )
+  const orgId = useOrgId()
+  const createMantenimiento = useCreateMantenimiento()
+  const updateMantenimiento = useUpdateMantenimiento()
+  const removeMantenimiento = useRemoveMantenimiento()
 
   const [sedeFiltro, setSedeFiltro] = useState<string>('all')
   const [tipoFiltro, setTipoFiltro] = useState<string>('all')
   const [estadoFiltro, setEstadoFiltro] = useState<string>('all')
   const [dialog, setDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; item: Mantenimiento }
+    null | { mode: 'add' } | { mode: 'edit'; item: MantenimientoSGC }
   >(null)
-  const [deleteTarget, setDeleteTarget] = useState<Mantenimiento | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<MantenimientoSGC | null>(
+    null
+  )
 
   const filtered = all.filter((m) => {
-    if (sedeFiltro !== 'all' && m.sedeId !== sedeFiltro) return false
+    if (sedeFiltro !== 'all' && m.sedeCodigo !== sedeFiltro) return false
     if (tipoFiltro !== 'all' && m.tipo !== tipoFiltro) return false
     if (estadoFiltro !== 'all' && m.estado !== estadoFiltro) return false
     return true
@@ -295,14 +309,42 @@ function MantenimientoPage() {
     total: all.length,
   }
 
-  function handleSave(m: Mantenimiento) {
-    if (dialog?.mode === 'edit') updateMantenimiento(m.id, m)
-    else addMantenimiento(m)
+  async function handleSave(data: MantFormData) {
+    const sede = sedes.find((s) => s.codigo === data.sedeCodigo)
+    if (!orgId || !sede) return
+    const codigo = `MNT-${Date.now()}`
+    if (dialog?.mode === 'edit') {
+      await updateMantenimiento({
+        id: dialog.item._id,
+        sedeCodigo: data.sedeCodigo,
+        descripcion: data.descripcion,
+        tipo: data.tipo,
+        area: data.area,
+        prioridad: data.prioridad,
+        solicitante: data.solicitante,
+        apertura: data.apertura,
+        estado: data.estado,
+      })
+    } else {
+      await createMantenimiento({
+        orgId,
+        sedeId: sede._id,
+        sedeCodigo: data.sedeCodigo,
+        codigo,
+        descripcion: data.descripcion,
+        tipo: data.tipo,
+        area: data.area,
+        prioridad: data.prioridad,
+        solicitante: data.solicitante,
+        apertura: data.apertura,
+        estado: data.estado,
+      })
+    }
     setDialog(null)
   }
 
-  function handleDelete() {
-    if (deleteTarget) deleteMantenimiento(deleteTarget.id)
+  async function handleDelete() {
+    if (deleteTarget) await removeMantenimiento({ id: deleteTarget._id })
     setDeleteTarget(null)
   }
 
@@ -336,7 +378,7 @@ function MantenimientoPage() {
             {sedes
               .filter((s) => s.activa)
               .map((s) => (
-                <SelectItem key={s.id} value={s.id}>
+                <SelectItem key={s._id} value={s.codigo}>
                   {s.ciudad}
                 </SelectItem>
               ))}
@@ -393,9 +435,9 @@ function MantenimientoPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((m) => {
-                const sede = sedes.find((s) => s.id === m.sedeId)
+                const sede = sedes.find((s) => s.codigo === m.sedeCodigo)
                 return (
-                  <TableRow key={m.id}>
+                  <TableRow key={m._id}>
                     <TableCell className="font-mono text-xs">
                       {m.codigo}
                     </TableCell>
@@ -404,7 +446,9 @@ function MantenimientoPage() {
                     </TableCell>
                     <TableCell>{tipoLabel(m.tipo)}</TableCell>
                     <TableCell>
-                      <div className="text-sm">{sede?.ciudad ?? m.sedeId}</div>
+                      <div className="text-sm">
+                        {sede?.ciudad ?? m.sedeCodigo}
+                      </div>
                       <div className="text-[0.65rem] text-muted-foreground">
                         {m.area}
                       </div>
@@ -474,8 +518,12 @@ function MantenimientoPage() {
           </DialogHeader>
           {dialog !== null && (
             <MantForm
-              initial={dialog.mode === 'edit' ? dialog.item : {}}
-              onSave={handleSave}
+              initial={
+                dialog.mode === 'edit'
+                  ? { ...dialog.item, sedeCodigo: dialog.item.sedeCodigo }
+                  : {}
+              }
+              onSave={(data) => void handleSave(data)}
               onCancel={() => setDialog(null)}
               sedes={sedes.filter((s) => s.activa)}
             />
@@ -505,7 +553,7 @@ function MantenimientoPage() {
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" onClick={() => void handleDelete()}>
               Eliminar
             </Button>
           </div>

@@ -15,20 +15,20 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { useSedes } from '#/lib/domain/config'
 import { useAcciones, useAuditorias, usePamecStats } from '#/lib/domain/pamec'
-import type { Auditoria } from '#/lib/types'
+import type { AuditoriaSGC } from '#/lib/domain/pamec'
 
 export const Route = createFileRoute('/pamec')({
   component: PamecPage,
 })
 
-const ESTADOS: Array<Auditoria['estado'] | 'all'> = [
+const ESTADOS: Array<AuditoriaSGC['estado'] | 'all'> = [
   'all',
   'planeada',
   'en_proceso',
   'cerrada',
 ]
 
-function estadoLabel(e: Auditoria['estado']): string {
+function estadoLabel(e: AuditoriaSGC['estado']): string {
   switch (e) {
     case 'planeada':
       return 'Programada'
@@ -125,13 +125,14 @@ function PamecPage() {
                     const sede =
                       a.sede === 'TODAS'
                         ? 'Todas'
-                        : (sedes.find((s) => s.id === a.sede)?.ciudad ?? a.sede)
+                        : (sedes.find((s) => s.codigo === a.sede)?.ciudad ??
+                          a.sede)
                     const hallazgos = a.hallazgos.length
                     const accionesCount = a.hallazgos.filter(
                       (h) => !!h.accionCorrectiva
                     ).length
                     return (
-                      <TableRow key={a.id}>
+                      <TableRow key={a._id}>
                         <TableCell className="font-mono text-xs">
                           {a.id}
                         </TableCell>
@@ -194,7 +195,7 @@ function PamecPage() {
                 </TableHeader>
                 <TableBody>
                   {acciones.map((a) => (
-                    <TableRow key={a.id}>
+                    <TableRow key={a._id}>
                       <TableCell className="max-w-xs truncate">
                         {a.hallazgo}
                       </TableCell>

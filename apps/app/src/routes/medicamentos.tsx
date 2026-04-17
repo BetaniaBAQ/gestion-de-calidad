@@ -34,12 +34,21 @@ import { Textarea } from '#/components/ui/textarea'
 import { useSedeActiva, useSedes, useVistaCompleta } from '#/lib/domain/config'
 import {
   useAlertasSanitarias,
-  useAlertasSanitariasStore,
+  useCreateAlerta,
+  useUpdateAlerta,
+  useRemoveAlerta,
+  useMedicamentos,
+  useCreateMedicamento,
+  useUpdateMedicamento,
+  useRemoveMedicamento,
   usePctConAccion,
 } from '#/lib/domain/medicamentos'
-import { useMedicamentosStore } from '#/lib/stores/medicamentos.store'
+import type {
+  MedicamentoSGC,
+  AlertaSanitariaSGC,
+} from '#/lib/domain/medicamentos'
+import { useOrgId } from '#/lib/org-context'
 import { diasHasta } from '#/lib/utils-sgc'
-import type { AlertaSanitaria, Medicamento } from '#/lib/types'
 
 export const Route = createFileRoute('/medicamentos')({
   component: MedicamentosPage,
@@ -47,7 +56,7 @@ export const Route = createFileRoute('/medicamentos')({
 
 // ── Medicamento helpers ───────────────────────────────────────────────────────
 
-function MedEstadoBadge({ med }: { med: Medicamento }) {
+function MedEstadoBadge({ med }: { med: MedicamentoSGC }) {
   const diasVenc = diasHasta(med.fechaVenc)
   const stockBajo = med.stock < med.stockMinimo
 
@@ -101,7 +110,9 @@ function MedEstadoBadge({ med }: { med: Medicamento }) {
   )
 }
 
-const MED_EMPTY: Omit<Medicamento, 'id'> = {
+type MedFormData = Omit<MedicamentoSGC, '_id' | 'id' | 'sedeId'>
+
+const MED_EMPTY: MedFormData = {
   nombre: '',
   principioActivo: '',
   concentracion: '',
@@ -123,24 +134,23 @@ function MedForm({
   onCancel,
   sedes,
 }: {
-  initial: Partial<Medicamento>
-  onSave: (m: Medicamento) => void
+  initial: Partial<MedFormData>
+  onSave: (m: MedFormData) => void
   onCancel: () => void
-  sedes: { id: string; ciudad: string }[]
+  sedes: { _id: string; codigo: string; ciudad: string }[]
 }) {
   const [form, setForm] = useState({ ...MED_EMPTY, ...initial })
 
-  function field<TKey extends keyof typeof MED_EMPTY>(
+  function field<TKey extends keyof MedFormData>(
     k: TKey,
-    v: (typeof MED_EMPTY)[TKey]
+    v: MedFormData[TKey]
   ) {
     setForm((f) => ({ ...f, [k]: v }))
   }
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    const id = initial.id ?? `MED-${Date.now()}`
-    onSave({ ...form, id } as Medicamento)
+    onSave(form)
   }
 
   return (
@@ -233,7 +243,7 @@ function MedForm({
             </SelectTrigger>
             <SelectContent>
               {sedes.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
+                <SelectItem key={s._id} value={s.codigo}>
                   {s.ciudad}
                 </SelectItem>
               ))}
@@ -244,7 +254,9 @@ function MedForm({
           <Label>Estado</Label>
           <Select
             value={form.estado}
-            onValueChange={(v) => field('estado', v as Medicamento['estado'])}
+            onValueChange={(v) =>
+              field('estado', v as MedicamentoSGC['estado'])
+            }
           >
             <SelectTrigger>
               <SelectValue />
@@ -281,15 +293,15 @@ function MedForm({
 
 // ── Alerta Sanitaria helpers ──────────────────────────────────────────────────
 
-const TIPO_ALERTA_LABELS: Record<AlertaSanitaria['tipo'], string> = {
+const TIPO_ALERTA_LABELS: Record<AlertaSanitariaSGC['tipo'], string> = {
   alerta_invima: 'Alerta INVIMA',
   ram: 'RAM',
   evento_ad: 'Evento adverso',
   retiro: 'Retiro de mercado',
 }
 
-function TipoAlertaBadge({ tipo }: { tipo: AlertaSanitaria['tipo'] }) {
-  const cls: Record<AlertaSanitaria['tipo'], string> = {
+function TipoAlertaBadge({ tipo }: { tipo: AlertaSanitariaSGC['tipo'] }) {
+  const cls: Record<AlertaSanitariaSGC['tipo'], string> = {
     alerta_invima: 'bg-red-400/20 text-red-400 border-red-400/40',
     ram: 'bg-orange-400/20 text-orange-400 border-orange-400/40',
     evento_ad: 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40',
@@ -302,7 +314,9 @@ function TipoAlertaBadge({ tipo }: { tipo: AlertaSanitaria['tipo'] }) {
   )
 }
 
-const ALERTA_EMPTY: Omit<AlertaSanitaria, 'id'> = {
+type AlertaFormData = Omit<AlertaSanitariaSGC, '_id' | 'id'>
+
+const ALERTA_EMPTY: AlertaFormData = {
   fecha: new Date().toISOString().slice(0, 10),
   tipo: 'alerta_invima',
   fuente: 'INVIMA',
@@ -316,23 +330,25 @@ function AlertaForm({
   onSave,
   onCancel,
 }: {
-  initial: Partial<AlertaSanitaria>
-  onSave: (a: AlertaSanitaria) => void
+  initial: Partial<AlertaFormData>
+  onSave: (a: AlertaFormData) => void
   onCancel: () => void
 }) {
-  const [form, setForm] = useState({ ...ALERTA_EMPTY, ...initial })
+  const [form, setForm] = useState<AlertaFormData>({
+    ...ALERTA_EMPTY,
+    ...initial,
+  })
 
-  function field<TKey extends keyof typeof ALERTA_EMPTY>(
+  function field<TKey extends keyof AlertaFormData>(
     k: TKey,
-    v: (typeof ALERTA_EMPTY)[TKey]
+    v: AlertaFormData[TKey]
   ) {
     setForm((f) => ({ ...f, [k]: v }))
   }
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    const id = initial.id ?? `ALT-${Date.now()}`
-    onSave({ ...form, id } as AlertaSanitaria)
+    onSave(form)
   }
 
   return (
@@ -351,7 +367,9 @@ function AlertaForm({
           <Label>Tipo *</Label>
           <Select
             value={form.tipo}
-            onValueChange={(v) => field('tipo', v as AlertaSanitaria['tipo'])}
+            onValueChange={(v) =>
+              field('tipo', v as AlertaSanitariaSGC['tipo'])
+            }
           >
             <SelectTrigger>
               <SelectValue />
@@ -413,16 +431,17 @@ function AlertaForm({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function MedicamentosPage() {
+  const orgId = useOrgId()
   const alertas = useAlertasSanitarias()
   const pctAccion = usePctConAccion()
-  const addAlerta = useAlertasSanitariasStore((s) => s.addAlerta)
-  const updateAlerta = useAlertasSanitariasStore((s) => s.updateAlerta)
-  const deleteAlerta = useAlertasSanitariasStore((s) => s.deleteAlerta)
+  const createAlerta = useCreateAlerta()
+  const updateAlerta = useUpdateAlerta()
+  const removeAlerta = useRemoveAlerta()
 
-  const medicamentos = useMedicamentosStore((s) => s.medicamentos)
-  const addMedicamento = useMedicamentosStore((s) => s.addMedicamento)
-  const updateMedicamento = useMedicamentosStore((s) => s.updateMedicamento)
-  const deleteMedicamento = useMedicamentosStore((s) => s.deleteMedicamento)
+  const medicamentos = useMedicamentos()
+  const createMedicamento = useCreateMedicamento()
+  const updateMedicamento = useUpdateMedicamento()
+  const removeMedicamento = useRemoveMedicamento()
 
   const sedes = useSedes()
   const sedeActiva = useSedeActiva()
@@ -445,26 +464,83 @@ function MedicamentosPage() {
   ).length
 
   const [medDialog, setMedDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; med: Medicamento }
+    null | { mode: 'add' } | { mode: 'edit'; med: MedicamentoSGC }
   >(null)
-  const [medDeleteTarget, setMedDeleteTarget] = useState<Medicamento | null>(
+  const [medDeleteTarget, setMedDeleteTarget] = useState<MedicamentoSGC | null>(
     null
   )
   const [alertaDialog, setAlertaDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; alerta: AlertaSanitaria }
+    null | { mode: 'add' } | { mode: 'edit'; alerta: AlertaSanitariaSGC }
   >(null)
   const [alertaDeleteTarget, setAlertaDeleteTarget] =
-    useState<AlertaSanitaria | null>(null)
+    useState<AlertaSanitariaSGC | null>(null)
 
-  function handleMedSave(m: Medicamento) {
-    if (medDialog?.mode === 'edit') updateMedicamento(m.id, m)
-    else addMedicamento(m)
+  async function handleMedSave(data: MedFormData) {
+    const sede = sedes.find((s) => s.codigo === data.sede)
+    if (!orgId || !sede) return
+    if (medDialog?.mode === 'edit') {
+      await updateMedicamento({
+        id: medDialog.med._id,
+        sedeId: sede._id,
+        sedeCodigo: data.sede,
+        nombre: data.nombre,
+        principioActivo: data.principioActivo,
+        concentracion: data.concentracion,
+        forma: data.forma,
+        laboratorio: data.laboratorio,
+        registro: data.registro,
+        lote: data.lote,
+        fechaVenc: data.fechaVenc,
+        stock: data.stock,
+        stockMinimo: data.stockMinimo,
+        condicionAlm: data.condicionAlm,
+        estado: data.estado,
+      })
+    } else {
+      await createMedicamento({
+        orgId,
+        sedeId: sede._id,
+        sedeCodigo: data.sede,
+        nombre: data.nombre,
+        principioActivo: data.principioActivo,
+        concentracion: data.concentracion,
+        forma: data.forma,
+        laboratorio: data.laboratorio,
+        registro: data.registro,
+        lote: data.lote,
+        fechaVenc: data.fechaVenc,
+        stock: data.stock,
+        stockMinimo: data.stockMinimo,
+        condicionAlm: data.condicionAlm,
+        estado: data.estado,
+      })
+    }
     setMedDialog(null)
   }
 
-  function handleAlertaSave(a: AlertaSanitaria) {
-    if (alertaDialog?.mode === 'edit') updateAlerta(a.id, a)
-    else addAlerta(a)
+  async function handleAlertaSave(data: AlertaFormData) {
+    if (!orgId) return
+    if (alertaDialog?.mode === 'edit') {
+      await updateAlerta({
+        id: alertaDialog.alerta._id,
+        fecha: data.fecha,
+        tipo: data.tipo,
+        fuente: data.fuente,
+        descripcion: data.descripcion,
+        accion: data.accion,
+        spLink: data.spLink,
+      })
+    } else {
+      await createAlerta({
+        orgId,
+        fecha: data.fecha,
+        tipo: data.tipo,
+        fuente: data.fuente,
+        descripcion: data.descripcion,
+        accion: data.accion,
+        spLink: data.spLink,
+      })
+    }
     setAlertaDialog(null)
   }
 
@@ -536,10 +612,10 @@ function MedicamentosPage() {
                 </TableHeader>
                 <TableBody>
                   {medsFiltered.map((m) => {
-                    const sede = sedes.find((s) => s.id === m.sede)
+                    const sede = sedes.find((s) => s.codigo === m.sede)
                     const dias = diasHasta(m.fechaVenc)
                     return (
-                      <TableRow key={m.id}>
+                      <TableRow key={m._id}>
                         <TableCell>
                           <div className="font-medium text-sm">{m.nombre}</div>
                           <div className="text-xs text-muted-foreground">
@@ -653,7 +729,7 @@ function MedicamentosPage() {
                 </TableHeader>
                 <TableBody>
                   {alertas.map((a) => (
-                    <TableRow key={a.id}>
+                    <TableRow key={a._id}>
                       <TableCell className="text-xs text-muted-foreground">
                         {new Date(a.fecha).toLocaleDateString('es-CO')}
                       </TableCell>
@@ -765,7 +841,7 @@ function MedicamentosPage() {
           {medDialog !== null && (
             <MedForm
               initial={medDialog.mode === 'edit' ? medDialog.med : {}}
-              onSave={handleMedSave}
+              onSave={(data) => void handleMedSave(data)}
               onCancel={() => setMedDialog(null)}
               sedes={sedes.filter((s) => s.activa)}
             />
@@ -796,8 +872,9 @@ function MedicamentosPage() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                if (medDeleteTarget) deleteMedicamento(medDeleteTarget.id)
+              onClick={async () => {
+                if (medDeleteTarget)
+                  await removeMedicamento({ id: medDeleteTarget._id })
                 setMedDeleteTarget(null)
               }}
             >
@@ -825,7 +902,7 @@ function MedicamentosPage() {
           {alertaDialog !== null && (
             <AlertaForm
               initial={alertaDialog.mode === 'edit' ? alertaDialog.alerta : {}}
-              onSave={handleAlertaSave}
+              onSave={(data) => void handleAlertaSave(data)}
               onCancel={() => setAlertaDialog(null)}
             />
           )}
@@ -855,8 +932,9 @@ function MedicamentosPage() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                if (alertaDeleteTarget) deleteAlerta(alertaDeleteTarget.id)
+              onClick={async () => {
+                if (alertaDeleteTarget)
+                  await removeAlerta({ id: alertaDeleteTarget._id })
                 setAlertaDeleteTarget(null)
               }}
             >

@@ -1,4 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useMutation } from 'convex/react'
+import { api } from '@cualia/convex'
 import { AlertTriangle, Camera, Play, Save, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '#/components/ui/badge'
@@ -16,7 +18,7 @@ import {
   SelectValue,
 } from '#/components/ui/select'
 import { Textarea } from '#/components/ui/textarea'
-import { useSedeActiva, useSedes, useUsuarioActual } from '#/lib/domain/config'
+import { useSedeActiva, useSedes } from '#/lib/domain/config'
 import {
   useAuditoriaEnCurso,
   useAuditoriaItems,
@@ -26,6 +28,7 @@ import {
   useResponderAuditoria,
   useSetStep,
 } from '#/lib/domain/auditoriaEnVivo'
+import { useOrgId } from '#/lib/org-context'
 import type { AuditoriaItemVivo } from '#/lib/types'
 
 export const Route = createFileRoute('/auditoria')({
@@ -51,14 +54,11 @@ function AuditoriaPage() {
 function AuditoriaStart() {
   const sedes = useSedes()
   const sedeActiva = useSedeActiva()
-  const usuario = useUsuarioActual()
   const iniciar = useIniciarAuditoria()
   const items = useAuditoriaItems()
 
   const [sedeId, setSedeId] = useState(sedeActiva)
-  const [auditor, setAuditor] = useState(
-    `${usuario?.nombre ?? 'Auditor'}${usuario?.rol ? ` (${usuario.rol})` : ''}`
-  )
+  const [auditor, setAuditor] = useState('Auditor')
 
   const porCategoria = items.reduce<Record<string, number>>((acc, i) => {
     acc[i.categoria] = (acc[i.categoria] ?? 0) + 1
@@ -91,7 +91,7 @@ function AuditoriaStart() {
                   {sedes
                     .filter((s) => s.activa)
                     .map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
+                      <SelectItem key={s._id} value={s.codigo}>
                         {s.ciudad}
                       </SelectItem>
                     ))}
@@ -144,10 +144,12 @@ function AuditoriaWizard() {
   const finalizar = useFinalizarAuditoria()
   const descartar = useDescartarAuditoria()
   const sedes = useSedes()
+  const orgId = useOrgId()
+  const createAuditoria = useMutation(api.pamec.createAuditoria)
 
   const step = enCurso.currentStep
   const item = items[step]
-  const sede = sedes.find((s) => s.id === enCurso.sedeId)
+  const sede = sedes.find((s) => s.codigo === enCurso.sedeId)
 
   const prev = () => setStep(Math.max(0, step - 1))
   const next = () => setStep(Math.min(items.length - 1, step + 1))
@@ -266,8 +268,40 @@ function AuditoriaWizard() {
               {step === items.length - 1 && (
                 <Button
                   variant="default"
-                  onClick={() => {
+                  onClick={async () => {
                     guardar()
+                    if (!orgId) return
+                    const sedeDoc = sedes.find(
+                      (s) => s.codigo === enCurso.sedeId
+                    )
+                    if (!sedeDoc) return
+                    const audId = `AUD-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`
+                    const hallazgos = enCurso.respuestas
+                      .filter((r) => r.cumple === 'no')
+                      .map((r, idx) => {
+                        const it = items.find((i) => i.id === r.itemId)
+                        return {
+                          id: `${audId}-h${idx + 1}`,
+                          tipo: 'no_conformidad' as const,
+                          descripcion: it?.descripcion ?? r.itemId,
+                          criterio: it?.normaReferencia ?? 'Auditoría en vivo',
+                          estado: 'abierto' as const,
+                          accionCorrectiva: r.observacion,
+                        }
+                      })
+                    await createAuditoria({
+                      orgId,
+                      sedeId: sedeDoc._id,
+                      sedeCodigo: sedeDoc.codigo,
+                      tipo: 'interna',
+                      proceso: 'Auditoría en vivo',
+                      auditor: enCurso.auditor,
+                      fechaInicio: enCurso.iniciadaEn.slice(0, 10),
+                      fechaFin: new Date().toISOString().slice(0, 10),
+                      estado: 'cerrada',
+                      observaciones: `Auditoría generada desde modo en vivo · ${enCurso.respuestas.length}/${items.length} ítems`,
+                      hallazgos,
+                    })
                     finalizar()
                     alert(
                       'Auditoría finalizada. Los hallazgos se enviaron a PAMEC.'

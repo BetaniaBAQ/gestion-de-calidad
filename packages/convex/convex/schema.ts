@@ -42,6 +42,7 @@ export default defineSchema({
   // ── Config: Cargos ───────────────────────────────────────────────────────
   cargos: defineTable({
     orgId: v.string(),
+    codigo: v.string(), // MD, ENF, AUX_ENF, QF, ADM, COORD_CAL, MD_ONC, MD_GEN
     nombre: v.string(),
     area: v.string(),
     perfil: v.string(),
@@ -73,9 +74,11 @@ export default defineSchema({
   personal: defineTable({
     orgId: v.string(),
     sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),         // desnormalizado para filtros rápidos ('BAQ', 'SIN', ...)
     nombre: v.string(),
     cedula: v.string(),
     cargoId: v.id('cargos'),
+    cargoCodigo: v.string(),        // desnormalizado para lookup en REQUISITOS_POR_CARGO
     fechaIngreso: v.string(),
     estado: v.union(
       v.literal('activo'),
@@ -83,7 +86,20 @@ export default defineSchema({
       v.literal('vacaciones'),
       v.literal('licencia')
     ),
-    // Scores calculados en queries, no almacenados
+    // Requisitos embebidos (Phase 0 — migrar a docs_personal en siguiente fase)
+    requisitos: v.optional(v.array(v.object({
+      defId: v.string(),
+      estado: v.union(
+        v.literal('VIGENTE'),
+        v.literal('POR_VALIDAR'),
+        v.literal('SIN_CARGAR'),
+        v.literal('VENCIDO'),
+        v.literal('CRITICO'),
+        v.literal('NO_APLICA'),
+      ),
+      fechaVigencia: v.optional(v.string()),
+      observacion: v.optional(v.string()),
+    }))),
   })
     .index('by_org', ['orgId'])
     .index('by_org_sede', ['orgId', 'sedeId'])
@@ -129,6 +145,7 @@ export default defineSchema({
   equipos: defineTable({
     orgId: v.string(),
     sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),       // desnormalizado para filtros rápidos
     nombre: v.string(),
     marca: v.string(),
     modelo: v.string(),
@@ -154,8 +171,9 @@ export default defineSchema({
   // ── Dotación: Mantenimientos ─────────────────────────────────────────────
   mantenimientos: defineTable({
     orgId: v.string(),
-    equipoId: v.optional(v.id('equipos')), // null = mantenimiento de infraestructura
     sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),         // desnormalizado para filtros rápidos
+    equipoId: v.optional(v.id('equipos')), // null = mantenimiento de infraestructura
     codigo: v.string(),
     descripcion: v.string(),
     tipo: v.union(
@@ -208,6 +226,7 @@ export default defineSchema({
       v.literal('otro')
     ),
     procesoId: v.optional(v.id('procesos')),
+    proceso: v.optional(v.string()), // nombre del proceso (texto libre hasta migrar tabla procesos)
     version: v.string(),
     fechaElaboracion: v.string(),
     fechaVigencia: v.optional(v.string()),
@@ -231,6 +250,7 @@ export default defineSchema({
   medicamentos: defineTable({
     orgId: v.string(),
     sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),       // desnormalizado para filtros rápidos
     nombre: v.string(),
     principioActivo: v.string(),
     concentracion: v.string(),
@@ -266,7 +286,7 @@ export default defineSchema({
     fuente: v.string(),
     descripcion: v.string(),
     accion: v.optional(v.string()),
-    archivo: v.optional(v.string()),
+    spLink: v.optional(v.string()), // SharePoint / evidencia URL
   }).index('by_org', ['orgId']),
 
   // ── Habilitación ─────────────────────────────────────────────────────────
@@ -307,10 +327,11 @@ export default defineSchema({
     .index('by_org_sede', ['orgId', 'sedeId'])
     .index('by_criterio_sede', ['criterioId', 'sedeId']),
 
-  // ── PAMEC: Auditorías ────────────────────────────────────────────────────
+  // ── PAMEC: Auditorías (Phase 0: hallazgos embebidos) ────────────────────
   pamec_auditorias: defineTable({
     orgId: v.string(),
     sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),       // desnormalizado para filtros rápidos
     tipo: v.union(
       v.literal('interna'),
       v.literal('externa'),
@@ -326,14 +347,33 @@ export default defineSchema({
       v.literal('cerrada')
     ),
     observaciones: v.optional(v.string()),
+    // Hallazgos embebidos (Phase 0 — migrar a pamec_hallazgos en siguiente fase)
+    hallazgos: v.optional(v.array(v.object({
+      id: v.string(),
+      tipo: v.union(
+        v.literal('no_conformidad'),
+        v.literal('observacion'),
+        v.literal('oportunidad_mejora')
+      ),
+      descripcion: v.string(),
+      criterio: v.optional(v.string()),
+      accionCorrectiva: v.optional(v.string()),
+      responsable: v.optional(v.string()),
+      fechaLimite: v.optional(v.string()),
+      estado: v.union(
+        v.literal('abierto'),
+        v.literal('cerrado'),
+        v.literal('vencido')
+      ),
+    }))),
   })
     .index('by_org', ['orgId'])
     .index('by_org_sede', ['orgId', 'sedeId']),
 
-  // ── PAMEC: Hallazgos ─────────────────────────────────────────────────────
+  // ── PAMEC: Hallazgos (Phase 1: tabla separada, pendiente) ────────────────
   pamec_hallazgos: defineTable({
     orgId: v.string(),
-    auditoriaId: v.optional(v.id('pamec_auditorias')), // puede surgir fuera de auditoría
+    auditoriaId: v.optional(v.id('pamec_auditorias')),
     sedeId: v.id('sedes'),
     tipo: v.union(
       v.literal('no_conformidad'),
@@ -362,10 +402,12 @@ export default defineSchema({
     .index('by_org_sede', ['orgId', 'sedeId'])
     .index('by_org_estado', ['orgId', 'estado']),
 
-  // ── PAMEC: Acciones correctivas/preventivas ──────────────────────────────
+  // ── PAMEC: Acciones correctivas/preventivas (Phase 0: hallazgo como texto) ─
   pamec_acciones: defineTable({
     orgId: v.string(),
-    hallazgoId: v.id('pamec_hallazgos'),
+    sedeCodigo: v.string(),
+    hallazgo: v.string(),         // Phase 0: texto del hallazgo (no FK)
+    causa: v.string(),
     accion: v.string(),
     responsable: v.string(),
     fechaLimite: v.string(),
@@ -376,10 +418,15 @@ export default defineSchema({
       v.literal('cerrado'),
       v.literal('vencido')
     ),
+    fase: v.union(
+      v.literal('planear'),
+      v.literal('hacer'),
+      v.literal('verificar'),
+      v.literal('actuar')
+    ),
     resultado: v.optional(v.string()),
   })
     .index('by_org', ['orgId'])
-    .index('by_hallazgo', ['hallazgoId'])
     .index('by_org_estado', ['orgId', 'estado']),
 
   // ── Indicadores: Fichas técnicas ─────────────────────────────────────────
@@ -423,6 +470,7 @@ export default defineSchema({
   pqrs: defineTable({
     orgId: v.string(),
     sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),       // desnormalizado para filtros rápidos
     tipo: v.union(
       v.literal('peticion'),
       v.literal('queja'),
@@ -467,6 +515,7 @@ export default defineSchema({
   adherencia: defineTable({
     orgId: v.string(),
     sedeId: v.id('sedes'),
+    sedeCodigo: v.string(),       // desnormalizado para filtros rápidos
     protocolo: v.string(),
     periodo: v.string(),
     totalAplicaciones: v.number(),

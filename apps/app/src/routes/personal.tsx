@@ -33,7 +33,7 @@ import {
   usePersonas,
   usePersonasTodas,
 } from '#/lib/domain/personal'
-import type { Persona } from '#/lib/types'
+import type { PersonaSGC } from '#/lib/domain/personal'
 
 export const Route = createFileRoute('/personal')({
   component: PersonalPage,
@@ -156,11 +156,11 @@ function PersonalTable({
   cargos,
   sedes,
 }: {
-  personas: Persona[]
+  personas: PersonaSGC[]
   cargos: ReturnType<typeof useCargos>
   sedes: ReturnType<typeof useSedes>
 }) {
-  const [open, setOpen] = useState<Persona | null>(null)
+  const [open, setOpen] = useState<PersonaSGC | null>(null)
 
   return (
     <>
@@ -182,7 +182,7 @@ function PersonalTable({
             <TableBody>
               {personas.map((p) => {
                 const cargo = cargos.find((c) => c.id === p.cargo)
-                const sede = sedes.find((s) => s.id === p.sede)
+                const sede = sedes.find((s) => s.codigo === p.sede)
                 const pct = completitudPersona(p)
                 const pend = pendientesValidacion(p)
                 const estado = estadoCompletitud(p)
@@ -258,7 +258,7 @@ function PersonaDetalleSheet({
   persona,
   onOpenChange,
 }: {
-  persona: Persona | null
+  persona: PersonaSGC | null
   onOpenChange: (open: boolean) => void
 }) {
   if (!persona) return null

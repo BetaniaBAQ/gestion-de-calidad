@@ -1,59 +1,85 @@
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@cualia/convex'
+import { useOrgId } from '#/lib/org-context'
 import { useConfigStore } from '#/lib/stores/config.store'
-import { MANTENIMIENTOS0 } from '#/lib/data'
-import type { Mantenimiento } from '#/lib/types'
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import type { GenericId } from 'convex/values'
 
-interface MantenimientosState {
-  mantenimientos: Mantenimiento[]
-  addMantenimiento: (m: Mantenimiento) => void
-  updateMantenimiento: (id: string, data: Partial<Mantenimiento>) => void
-  deleteMantenimiento: (id: string) => void
+type MantenimientoId = GenericId<'mantenimientos'>
+type SedeId = GenericId<'sedes'>
+
+export type MantenimientoSGC = {
+  _id: MantenimientoId
+  id: string // alias de _id
+  sedeId: SedeId
+  sedeCodigo: string // usado por filtros ('BAQ', 'SIN', ...)
+  codigo: string
+  descripcion: string
+  tipo:
+    | 'biomedico'
+    | 'infraestructura'
+    | 'ti'
+    | 'preventivo'
+    | 'correctivo'
+    | 'calibracion'
+    | 'otro'
+  area: string
+  prioridad: 'alta' | 'media' | 'baja'
+  solicitante: string
+  apertura: string
+  estado: 'abierto' | 'asignado' | 'en_ejecucion' | 'cerrado' | 'cancelado'
+  tecnico?: string
+  empresa?: string
+  costo?: number
+  fechaCierre?: string
+  observaciones?: string
+  proxFecha?: string
+  equipoId?: GenericId<'equipos'>
 }
 
-export const useMantenimientosStore = create<MantenimientosState>()(
-  persist(
-    (set) => ({
-      mantenimientos: MANTENIMIENTOS0,
-      addMantenimiento: (m) =>
-        set((s) => ({ mantenimientos: [...s.mantenimientos, m] })),
-      updateMantenimiento: (id, data) =>
-        set((s) => ({
-          mantenimientos: s.mantenimientos.map((x) =>
-            x.id === id ? { ...x, ...data } : x
-          ),
-        })),
-      deleteMantenimiento: (id) =>
-        set((s) => ({
-          mantenimientos: s.mantenimientos.filter((x) => x.id !== id),
-        })),
-    }),
-    { name: 'sgc-mantenimientos', skipHydration: true }
+// ─── Queries ─────────────────────────────────────────────────────────────────
+
+function useMantenimientosRaw() {
+  const orgId = useOrgId()
+  return (
+    useQuery(api.mantenimientos.listByOrg, orgId ? { orgId } : 'skip') ?? []
   )
-)
-
-export function useMantenimientos(): Mantenimiento[] {
-  const all = useMantenimientosStore((s) => s.mantenimientos)
-  const sedeActiva = useConfigStore((s) => s.sedeActiva)
-  const vistaCompleta = useConfigStore((s) => s.vistaCompleta)
-  return vistaCompleta ? all : all.filter((m) => m.sedeId === sedeActiva)
 }
 
-export function useMantenimientosTodos(): Mantenimiento[] {
-  return useMantenimientosStore((s) => s.mantenimientos)
-}
-
-export function useUpsertMantenimiento() {
-  const add = useMantenimientosStore((s) => s.addMantenimiento)
-  const update = useMantenimientosStore((s) => s.updateMantenimiento)
-  return (m: Mantenimiento) => {
-    const existing = useMantenimientosStore
-      .getState()
-      .mantenimientos.find((x) => x.id === m.id)
-    if (existing) update(m.id, m)
-    else add(m)
+function project(
+  doc: ReturnType<typeof useMantenimientosRaw>[number]
+): MantenimientoSGC {
+  return {
+    ...doc,
+    id: doc._id,
   }
 }
+
+export function useMantenimientos(): MantenimientoSGC[] {
+  const all = useMantenimientosRaw().map(project)
+  const sedeActiva = useConfigStore((s) => s.sedeActiva)
+  const vistaCompleta = useConfigStore((s) => s.vistaCompleta)
+  return vistaCompleta ? all : all.filter((m) => m.sedeCodigo === sedeActiva)
+}
+
+export function useMantenimientosTodos(): MantenimientoSGC[] {
+  return useMantenimientosRaw().map(project)
+}
+
+// ─── Mutations ───────────────────────────────────────────────────────────────
+
+export function useCreateMantenimiento() {
+  return useMutation(api.mantenimientos.create)
+}
+
+export function useUpdateMantenimiento() {
+  return useMutation(api.mantenimientos.update)
+}
+
+export function useRemoveMantenimiento() {
+  return useMutation(api.mantenimientos.remove)
+}
+
+// ─── Indicadores ─────────────────────────────────────────────────────────────
 
 export function usePctCerradas(): number {
   const all = useMantenimientos()

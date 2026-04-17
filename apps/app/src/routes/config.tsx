@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { useMutation, useQuery } from 'convex/react'
+import { api } from '@cualia/convex'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
@@ -31,10 +33,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { Textarea } from '#/components/ui/textarea'
 import { HABILITACION_CATALOGO } from '#/lib/data-catalogs'
 import { useSedes } from '#/lib/domain/config'
-import { useCargos } from '#/lib/domain/personal'
-import { useConfigStore } from '#/lib/stores/config.store'
-import { usePersonalStore } from '#/lib/stores/personal.store'
-import type { Cargo, Rol, Sede, ServicioHabilitado, Usuario } from '#/lib/types'
+import {
+  useCargos,
+  useCreateCargo,
+  useUpdateCargo,
+} from '#/lib/domain/personal'
+import type { CargoSGC } from '#/lib/domain/personal'
+import { useOrgId } from '#/lib/org-context'
+import type { Cargo, Rol } from '#/lib/types'
+import type { GenericId } from 'convex/values'
+
+type Id<T extends string> = GenericId<T>
 
 export const Route = createFileRoute('/config')({
   component: ConfigPage,
@@ -45,20 +54,24 @@ const ROL_LABELS: Record<Rol, string> = {
   calidad: 'Coordinador Calidad',
   director: 'Director Médico',
   coordinador: 'Coordinador',
-  aux_adm: 'Auxiliar Administrativo',
+  farmaceutico: 'Químico Farmacéutico',
   view: 'Solo lectura',
 }
 
-const SERVICIOS_CATALOGO: ServicioHabilitado[] = [
-  'Consulta externa',
-  'Hematología',
-  'Oncología',
-  'Infusión IV',
-]
-
 // ── Sede Form ──────────────────────────────────────────────────────────────────
 
-const SEDE_EMPTY: Omit<Sede, 'id'> = {
+type SedeFormData = {
+  codigo: string
+  nombre: string
+  ciudad: string
+  departamento: string
+  direccion: string
+  activa: boolean
+  servicios: string[]
+}
+
+const SEDE_EMPTY: SedeFormData = {
+  codigo: '',
   nombre: '',
   ciudad: '',
   departamento: '',
@@ -69,64 +82,89 @@ const SEDE_EMPTY: Omit<Sede, 'id'> = {
 
 function SedeForm({
   initial,
+  isEdit,
   onSave,
   onCancel,
 }: {
-  initial: Partial<Sede>
-  onSave: (s: Sede) => void
+  initial: Partial<SedeFormData>
+  isEdit: boolean
+  onSave: (data: SedeFormData) => void
   onCancel: () => void
 }) {
-  const [form, setForm] = useState({ ...SEDE_EMPTY, ...initial })
-  const [servicioCheck, setServicioCheck] = useState<ServicioHabilitado[]>(
-    initial.servicios ?? []
+  const [form, setForm] = useState<SedeFormData>({
+    ...SEDE_EMPTY,
+    ...initial,
+  })
+  const [serviciosStr, setServiciosStr] = useState(
+    (initial.servicios ?? []).join('\n')
   )
-
-  function field<TKey extends keyof typeof SEDE_EMPTY>(
-    k: TKey,
-    v: (typeof SEDE_EMPTY)[TKey]
-  ) {
-    setForm((f) => ({ ...f, [k]: v }))
-  }
-
-  function toggleServicio(s: ServicioHabilitado) {
-    setServicioCheck((prev) =>
-      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
-    )
-  }
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    const id =
-      initial.id ?? form.ciudad.toUpperCase().slice(0, 3).replace(/\s/g, '')
-    onSave({ ...form, id, servicios: servicioCheck } as Sede)
+    const codigo =
+      form.codigo || form.ciudad.toUpperCase().slice(0, 3).replace(/\s/g, '')
+    const servicios = serviciosStr
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    onSave({ ...form, codigo, servicios })
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label>Nombre / Código *</Label>
-          <Input
-            value={form.nombre}
-            onChange={(e) => field('nombre', e.target.value)}
-            required
-            placeholder="Sede Barranquilla"
-          />
+        {!isEdit && (
+          <div className="space-y-1">
+            <Label>Código *</Label>
+            <Input
+              value={form.codigo}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  codigo: e.target.value.toUpperCase().slice(0, 4),
+                }))
+              }
+              placeholder="BAQ"
+              required
+            />
+          </div>
+        )}
+        <div className={isEdit ? 'col-span-2' : ''}>
+          <div className="space-y-1">
+            <Label>Nombre / Razón social *</Label>
+            <Input
+              value={form.nombre}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, nombre: e.target.value }))
+              }
+              required
+              placeholder="Betania Barranquilla"
+            />
+          </div>
         </div>
         <div className="space-y-1">
           <Label>Ciudad *</Label>
           <Input
             value={form.ciudad}
-            onChange={(e) => field('ciudad', e.target.value)}
+            onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value }))}
             required
           />
         </div>
         <div className="space-y-1">
           <Label>Departamento</Label>
           <Input
-            value={form.departamento ?? ''}
+            value={form.departamento}
             onChange={(e) =>
               setForm((f) => ({ ...f, departamento: e.target.value }))
+            }
+          />
+        </div>
+        <div className="col-span-2 space-y-1">
+          <Label>Dirección</Label>
+          <Input
+            value={form.direccion}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, direccion: e.target.value }))
             }
           />
         </div>
@@ -134,7 +172,9 @@ function SedeForm({
           <Label>Estado</Label>
           <Select
             value={form.activa ? 'activa' : 'inactiva'}
-            onValueChange={(v) => field('activa', v === 'activa')}
+            onValueChange={(v) =>
+              setForm((f) => ({ ...f, activa: v === 'activa' }))
+            }
           >
             <SelectTrigger>
               <SelectValue />
@@ -146,30 +186,16 @@ function SedeForm({
           </Select>
         </div>
         <div className="col-span-2 space-y-1">
-          <Label>Dirección</Label>
-          <Input
-            value={form.direccion}
-            onChange={(e) => field('direccion', e.target.value)}
+          <Label>Servicios habilitados REPS</Label>
+          <p className="text-[0.65rem] text-muted-foreground">Uno por línea</p>
+          <Textarea
+            value={serviciosStr}
+            onChange={(e) => setServiciosStr(e.target.value)}
+            rows={6}
+            placeholder={
+              'Hematología\nOncología Clínica\nServicio Farmacéutico'
+            }
           />
-        </div>
-        <div className="col-span-2 space-y-1">
-          <Label>Servicios habilitados</Label>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {SERVICIOS_CATALOGO.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => toggleServicio(s)}
-                className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
-                  servicioCheck.includes(s)
-                    ? 'bg-primary/20 text-primary border-primary/40'
-                    : 'border-border text-muted-foreground hover:border-primary/40'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-2">
@@ -281,139 +307,43 @@ function CargoForm({
   )
 }
 
-// ── Usuario Form ──────────────────────────────────────────────────────────────
-
-const USUARIO_EMPTY: Omit<Usuario, 'id'> = {
-  nombre: '',
-  email: '',
-  rol: 'view',
-  sede: 'BAQ',
-  clave: '',
-}
-
-function UsuarioForm({
-  initial,
-  onSave,
-  onCancel,
-  sedes,
-}: {
-  initial: Partial<Usuario>
-  onSave: (u: Usuario) => void
-  onCancel: () => void
-  sedes: { id: string; ciudad: string }[]
-}) {
-  const [form, setForm] = useState({ ...USUARIO_EMPTY, ...initial })
-
-  function field<TKey extends keyof typeof USUARIO_EMPTY>(
-    k: TKey,
-    v: (typeof USUARIO_EMPTY)[TKey]
-  ) {
-    setForm((f) => ({ ...f, [k]: v }))
-  }
-
-  function handleSubmit(ev: React.FormEvent) {
-    ev.preventDefault()
-    const id = initial.id ?? `USR-${Date.now()}`
-    onSave({ ...form, id } as Usuario)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 space-y-1">
-          <Label>Nombre completo *</Label>
-          <Input
-            value={form.nombre}
-            onChange={(e) => field('nombre', e.target.value)}
-            required
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Email *</Label>
-          <Input
-            type="email"
-            value={form.email}
-            onChange={(e) => field('email', e.target.value)}
-            required
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>
-            {initial.id ? 'Nueva clave (vacío = no cambiar)' : 'Clave *'}
-          </Label>
-          <Input
-            type="password"
-            value={form.clave}
-            onChange={(e) => field('clave', e.target.value)}
-            required={!initial.id}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Rol *</Label>
-          <Select
-            value={form.rol}
-            onValueChange={(v) => field('rol', v as Rol)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(
-                [
-                  'admin',
-                  'calidad',
-                  'director',
-                  'coordinador',
-                  'aux_adm',
-                  'view',
-                ] as const
-              ).map((r) => (
-                <SelectItem key={r} value={r}>
-                  {ROL_LABELS[r]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>Sede</Label>
-          <Select value={form.sede} onValueChange={(v) => field('sede', v)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sedes.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.ciudad}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
-        <Button type="submit">Guardar</Button>
-      </div>
-    </form>
-  )
-}
-
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
 function SedesTab() {
+  const orgId = useOrgId()
   const sedes = useSedes()
-  const addSede = useConfigStore((s) => s.addSede)
-  const updateSede = useConfigStore((s) => s.updateSede)
-  const [dialog, setDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; sede: Sede }
-  >(null)
+  const createSede = useMutation(api.sedes.create)
+  const updateSede = useMutation(api.sedes.update)
 
-  function handleSave(sede: Sede) {
-    if (dialog?.mode === 'edit') updateSede(sede.id, sede)
-    else addSede(sede)
+  type DialogState =
+    | null
+    | { mode: 'add' }
+    | { mode: 'edit'; sedeId: Id<'sedes'>; data: SedeFormData }
+
+  const [dialog, setDialog] = useState<DialogState>(null)
+
+  async function handleSave(data: SedeFormData) {
+    if (dialog?.mode === 'edit') {
+      await updateSede({
+        id: dialog.sedeId,
+        nombre: data.nombre,
+        ciudad: data.ciudad,
+        departamento: data.departamento || undefined,
+        direccion: data.direccion,
+        activa: data.activa,
+        servicios: data.servicios,
+      })
+    } else {
+      await createSede({
+        orgId,
+        codigo: data.codigo,
+        nombre: data.nombre,
+        ciudad: data.ciudad,
+        departamento: data.departamento || undefined,
+        direccion: data.direccion,
+        servicios: data.servicios,
+      })
+    }
     setDialog(null)
   }
 
@@ -426,7 +356,7 @@ function SedesTab() {
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {sedes.map((sede) => (
-          <Card key={sede.id}>
+          <Card key={sede._id}>
             <CardContent className="pt-4 space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -434,7 +364,7 @@ function SedesTab() {
                     {sede.nombre || sede.ciudad}
                   </div>
                   <div className="text-[0.65rem] text-muted-foreground">
-                    {sede.ciudad}
+                    [{sede.codigo}] {sede.ciudad}
                     {sede.departamento ? `, ${sede.departamento}` : ''}
                   </div>
                 </div>
@@ -450,7 +380,7 @@ function SedesTab() {
                 </Badge>
               </div>
               <div className="flex flex-wrap gap-1">
-                {(sede.servicios ?? []).map((s) => (
+                {sede.servicios.map((s) => (
                   <Badge key={s} variant="secondary" className="text-[0.6rem]">
                     {s}
                   </Badge>
@@ -465,7 +395,21 @@ function SedesTab() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setDialog({ mode: 'edit', sede })}
+                  onClick={() =>
+                    setDialog({
+                      mode: 'edit',
+                      sedeId: sede._id,
+                      data: {
+                        codigo: sede.codigo,
+                        nombre: sede.nombre,
+                        ciudad: sede.ciudad,
+                        departamento: sede.departamento ?? '',
+                        direccion: sede.direccion,
+                        activa: sede.activa,
+                        servicios: sede.servicios,
+                      },
+                    })
+                  }
                 >
                   <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
                 </Button>
@@ -489,7 +433,8 @@ function SedesTab() {
           </DialogHeader>
           {dialog !== null && (
             <SedeForm
-              initial={dialog.mode === 'edit' ? dialog.sede : {}}
+              initial={dialog.mode === 'edit' ? dialog.data : {}}
+              isEdit={dialog.mode === 'edit'}
               onSave={handleSave}
               onCancel={() => setDialog(null)}
             />
@@ -501,16 +446,36 @@ function SedesTab() {
 }
 
 function CargosTab() {
+  const orgId = useOrgId()
   const cargos = useCargos()
-  const addCargo = usePersonalStore((s) => s.addCargo)
-  const updateCargo = usePersonalStore((s) => s.updateCargo)
+  const createCargo = useCreateCargo()
+  const updateCargoMutation = useUpdateCargo()
   const [dialog, setDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; cargo: Cargo }
+    null | { mode: 'add' } | { mode: 'edit'; cargo: CargoSGC }
   >(null)
 
-  function handleSave(c: Cargo) {
-    if (dialog?.mode === 'edit') updateCargo(c.id, c)
-    else addCargo(c)
+  async function handleSave(c: Cargo) {
+    if (!orgId) return
+    if (dialog?.mode === 'edit') {
+      await updateCargoMutation({
+        id: dialog.cargo._id,
+        nombre: c.nombre,
+        area: c.area,
+        perfil: c.perfil,
+        docRequeridos: c.docRequeridos,
+        capRequeridas: c.capRequeridas,
+      })
+    } else {
+      await createCargo({
+        orgId,
+        codigo: c.nombre.toUpperCase().replace(/\s+/g, '_').slice(0, 20),
+        nombre: c.nombre,
+        area: c.area,
+        perfil: c.perfil,
+        docRequeridos: c.docRequeridos,
+        capRequeridas: c.capRequeridas,
+      })
+    }
     setDialog(null)
   }
 
@@ -535,7 +500,7 @@ function CargosTab() {
             </TableHeader>
             <TableBody>
               {cargos.map((c) => (
-                <TableRow key={c.id}>
+                <TableRow key={c._id}>
                   <TableCell className="font-medium">{c.nombre}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {c.area}
@@ -574,7 +539,7 @@ function CargosTab() {
           {dialog !== null && (
             <CargoForm
               initial={dialog.mode === 'edit' ? dialog.cargo : {}}
-              onSave={handleSave}
+              onSave={(c) => void handleSave(c)}
               onCancel={() => setDialog(null)}
             />
           )}
@@ -585,103 +550,130 @@ function CargosTab() {
 }
 
 function UsuariosTab() {
-  const usuarios = useConfigStore((s) => s.usuarios)
+  const orgId = useOrgId()
   const sedes = useSedes()
-  const addUsuario = useConfigStore((s) => s.addUsuario)
-  const updateUsuario = useConfigStore((s) => s.updateUsuario)
-  const [dialog, setDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; usuario: Usuario }
-  >(null)
+  const usuarios =
+    useQuery(api.usuarios.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  const updateUsuario = useMutation(api.usuarios.update)
 
-  function handleSave(u: Usuario) {
-    if (dialog?.mode === 'edit') {
-      const data: Partial<Usuario> = u.clave
-        ? u
-        : { ...u, clave: dialog.usuario.clave }
-      updateUsuario(u.id, data)
-    } else {
-      addUsuario(u)
-    }
-    setDialog(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingRol, setEditingRol] = useState<Rol>('view')
+
+  function startEdit(id: string, rol: Rol) {
+    setEditingId(id)
+    setEditingRol(rol)
+  }
+
+  async function saveRol(id: Id<'usuarios'>) {
+    await updateUsuario({ id, rol: editingRol })
+    setEditingId(null)
   }
 
   return (
-    <>
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setDialog({ mode: 'add' })}>
-          <Plus className="h-4 w-4 mr-1" /> Nuevo usuario
-        </Button>
-      </div>
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>NOMBRE</TableHead>
-                <TableHead>EMAIL</TableHead>
-                <TableHead>ROL</TableHead>
-                <TableHead>SEDE</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {usuarios.map((u) => {
-                const sede = sedes.find((s) => s.id === u.sede)
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.nombre}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {u.email}
-                    </TableCell>
-                    <TableCell>
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>NOMBRE</TableHead>
+              <TableHead>EMAIL</TableHead>
+              <TableHead>ROL</TableHead>
+              <TableHead>SEDE</TableHead>
+              <TableHead className="w-24" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {usuarios.map((u) => {
+              const sede = sedes.find((s) => s._id === u.sedeId)
+              return (
+                <TableRow key={u._id}>
+                  <TableCell className="font-medium">{u.nombre}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {u.email}
+                  </TableCell>
+                  <TableCell>
+                    {editingId === u._id ? (
+                      <Select
+                        value={editingRol}
+                        onValueChange={(v) => setEditingRol(v as Rol)}
+                      >
+                        <SelectTrigger className="h-7 text-xs w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            [
+                              'admin',
+                              'calidad',
+                              'director',
+                              'coordinador',
+                              'farmaceutico',
+                              'view',
+                            ] as const
+                          ).map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {ROL_LABELS[r]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
                       <Badge variant="secondary" className="text-xs">
-                        {ROL_LABELS[u.rol]}
+                        {ROL_LABELS[u.rol as Rol]}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {sede?.ciudad ?? u.sede}
-                    </TableCell>
-                    <TableCell>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {sede?.ciudad ?? '—'}
+                  </TableCell>
+                  <TableCell>
+                    {editingId === u._id ? (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs px-2"
+                          onClick={() => saveRol(u._id)}
+                        >
+                          Guardar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs px-2"
+                          onClick={() => setEditingId(null)}
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    ) : (
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
-                        onClick={() => setDialog({ mode: 'edit', usuario: u })}
+                        onClick={() => startEdit(u._id, u.rol as Rol)}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Dialog
-        open={dialog !== null}
-        onOpenChange={(open) => {
-          if (!open) setDialog(null)
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {dialog?.mode === 'edit' ? 'Editar usuario' : 'Nuevo usuario'}
-            </DialogTitle>
-          </DialogHeader>
-          {dialog !== null && (
-            <UsuarioForm
-              initial={dialog.mode === 'edit' ? dialog.usuario : {}}
-              onSave={handleSave}
-              onCancel={() => setDialog(null)}
-              sedes={sedes.filter((s) => s.activa)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+            {usuarios.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center text-muted-foreground text-sm py-8"
+                >
+                  Sin usuarios registrados. Los usuarios se crean al iniciar
+                  sesión.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }
 

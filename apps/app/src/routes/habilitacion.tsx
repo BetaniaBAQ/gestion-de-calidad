@@ -94,13 +94,13 @@ function HabilitacionPage() {
   const updateItem = useUpdateItem()
   const initSede = useInitSede()
 
-  const sede = sedes.find((s) => s.id === sedeActiva)
+  const sede = sedes.find((s) => s.codigo === sedeActiva)
   const hab = useHabilitacionPorSede(sedeActiva)
   const auto = autoForSede(autoAll, sedeActiva)
   const items = computeChecklistEstado(hab, auto)
   const pct = pctChecklistCumplido(hab, auto)
 
-  const servicios: ServicioHabilitado[] = sede?.servicios ?? []
+  const servicios = (sede?.servicios ?? []) as unknown as ServicioHabilitado[]
 
   function toggle(
     itemId: string,
@@ -151,12 +151,12 @@ function HabilitacionPage() {
               .filter((s) => s.activa)
               .map((s) => (
                 <Button
-                  key={s.id}
+                  key={s._id}
                   size="sm"
-                  variant={s.id === sedeActiva ? 'default' : 'outline'}
+                  variant={s.codigo === sedeActiva ? 'default' : 'outline'}
                   onClick={() => {
                     setVistaCompleta(false)
-                    setSedeActiva(s.id)
+                    setSedeActiva(s.codigo)
                   }}
                 >
                   {s.ciudad}

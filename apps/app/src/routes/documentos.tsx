@@ -31,12 +31,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import {
   useDocumentos,
+  useCreateDocumento,
+  useUpdateDocumento,
+  useRemoveDocumento,
   usePctConSp,
   usePctVigentes,
 } from '#/lib/domain/documentos'
-import { useDocumentosStore } from '#/lib/stores/documentos.store'
+import type { DocSGC } from '#/lib/domain/documentos'
 import { diasHasta } from '#/lib/utils-sgc'
-import type { Documento, DocumentoEstado, DocumentoTipo } from '#/lib/types'
+import type { DocumentoEstado, DocumentoTipo } from '#/lib/types'
 
 export const Route = createFileRoute('/documentos')({
   component: DocumentosPage,
@@ -123,7 +126,7 @@ function VencimientoCell({ fecha }: { fecha: string }) {
   )
 }
 
-const EMPTY: Omit<Documento, 'id'> = {
+const EMPTY: Omit<DocSGC, '_id' | 'id' | 'elaboradoPor'> = {
   codigo: '',
   nombre: '',
   tipo: 'procedimiento',
@@ -141,8 +144,8 @@ function DocForm({
   onSave,
   onCancel,
 }: {
-  initial: Partial<Documento>
-  onSave: (d: Documento) => void
+  initial: Partial<DocSGC>
+  onSave: (d: Omit<DocSGC, '_id' | 'id' | 'elaboradoPor'>) => void
   onCancel: () => void
 }) {
   const [form, setForm] = useState({ ...EMPTY, ...initial })
@@ -156,8 +159,7 @@ function DocForm({
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    const id = initial.id ?? `DOC-${Date.now()}`
-    onSave({ ...form, id } as Documento)
+    onSave(form)
   }
 
   return (
@@ -289,17 +291,17 @@ function DocumentosPage() {
   const docs = useDocumentos()
   const pctVig = usePctVigentes()
   const pctSp = usePctConSp()
-  const addDocumento = useDocumentosStore((s) => s.addDocumento)
-  const updateDocumento = useDocumentosStore((s) => s.updateDocumento)
-  const deleteDocumento = useDocumentosStore((s) => s.deleteDocumento)
+  const createDocumento = useCreateDocumento()
+  const updateDocumento = useUpdateDocumento()
+  const removeDocumento = useRemoveDocumento()
 
   const [tipo, setTipo] = useState<string>('all')
   const [estado, setEstado] = useState<string>('all')
   const [proceso, setProceso] = useState<string>('all')
   const [dialog, setDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; doc: Documento }
+    null | { mode: 'add' } | { mode: 'edit'; doc: DocSGC }
   >(null)
-  const [deleteTarget, setDeleteTarget] = useState<Documento | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DocSGC | null>(null)
 
   const filtered = docs.filter((d) => {
     if (tipo !== 'all' && d.tipo !== tipo) return false
@@ -318,9 +320,12 @@ function DocumentosPage() {
     .filter((d) => d.estado === 'vigente' && diasHasta(d.fechaVigencia) <= 60)
     .sort((a, b) => diasHasta(a.fechaVigencia) - diasHasta(b.fechaVigencia))
 
-  function handleSave(d: Documento) {
-    if (dialog?.mode === 'edit') updateDocumento(d.id, d)
-    else addDocumento(d)
+  function handleSave(d: Omit<DocSGC, '_id' | 'id' | 'elaboradoPor'>) {
+    if (dialog?.mode === 'edit') {
+      updateDocumento(dialog.doc._id, d)
+    } else {
+      createDocumento(d as any)
+    }
     setDialog(null)
   }
 
@@ -420,7 +425,7 @@ function DocumentosPage() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((d) => (
-                    <TableRow key={d.id}>
+                    <TableRow key={d._id}>
                       <TableCell className="font-mono text-xs">
                         {d.codigo}
                       </TableCell>
@@ -508,7 +513,7 @@ function DocumentosPage() {
               <CardContent className="space-y-2">
                 {enCiclo.map((d) => (
                   <div
-                    key={d.id}
+                    key={d._id}
                     className="flex items-center gap-3 rounded-md border border-border/60 bg-card/30 px-3 py-2"
                   >
                     <div className="flex-1 min-w-0">
@@ -546,7 +551,7 @@ function DocumentosPage() {
                   const dias = diasHasta(d.fechaVigencia)
                   return (
                     <div
-                      key={d.id}
+                      key={d._id}
                       className="flex items-center gap-3 rounded-md border border-border/60 bg-card/30 px-3 py-2"
                     >
                       <div className="flex-1 min-w-0">
@@ -637,7 +642,7 @@ function DocumentosPage() {
             <Button
               variant="destructive"
               onClick={() => {
-                if (deleteTarget) deleteDocumento(deleteTarget.id)
+                if (deleteTarget) removeDocumento({ id: deleteTarget._id })
                 setDeleteTarget(null)
               }}
             >

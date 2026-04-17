@@ -11,11 +11,7 @@ import {
 } from '#/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { useAdherenciaPromedio } from '#/lib/domain/adherencia'
-import {
-  useDocumentos,
-  usePctConSp,
-  usePctVigentes,
-} from '#/lib/domain/documentos'
+import { usePctConSp, usePctVigentes } from '#/lib/domain/documentos'
 import { equipoMantVigente, useEquiposTodos } from '#/lib/domain/equipos'
 import {
   autoForSede,
@@ -24,10 +20,8 @@ import {
   useHabilitacionesAll,
 } from '#/lib/domain/habilitacion'
 import { useIndicadores } from '#/lib/domain/indicadores'
-import {
-  useMantenimientosTodos,
-  usePctCerradas,
-} from '#/lib/domain/mantenimiento'
+import type { IndicadorSGC } from '#/lib/domain/indicadores'
+import { usePctCerradas } from '#/lib/domain/mantenimiento'
 import {
   usePctConAccion,
   useAlertasSanitarias,
@@ -36,7 +30,6 @@ import { useSedesActivas } from '#/lib/domain/config'
 import { completitudPersona, usePersonasTodas } from '#/lib/domain/personal'
 import { usePqrsStats } from '#/lib/domain/pqrs'
 import { CAPACITACIONES_PROGRAMADAS0 } from '#/lib/data'
-import type { Indicador } from '#/lib/types'
 
 export const Route = createFileRoute('/indicadores')({
   component: IndicadoresPage,
@@ -81,8 +74,6 @@ function IndicadoresPage() {
   // Valores live
   const personas = usePersonasTodas()
   const equipos = useEquiposTodos()
-  const mantenimientos = useMantenimientosTodos()
-  const docs = useDocumentos()
   const sedesActivas = useSedesActivas()
   const habs = useHabilitacionesAll()
   const autoAll = useAutoVerificacionPorSede()
@@ -97,7 +88,7 @@ function IndicadoresPage() {
   const pctHv = useMemo(() => {
     if (equipos.length === 0) return 0
     return Math.round(
-      (equipos.filter((e) => e.docs.length > 0).length / equipos.length) * 100
+      0
     )
   }, [equipos])
   const pctCerradas = usePctCerradas()
@@ -109,7 +100,7 @@ function IndicadoresPage() {
   const pctChecklistPromedio = useMemo(() => {
     if (sedesActivas.length === 0) return 0
     const vals = sedesActivas.map((s) =>
-      pctChecklistCumplido(habs[s.id], autoForSede(autoAll, s.id))
+      pctChecklistCumplido(habs[s.codigo], autoForSede(autoAll, s.codigo))
     )
     return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
   }, [sedesActivas, habs, autoAll])
@@ -159,7 +150,7 @@ function IndicadoresPage() {
     return true
   })
 
-  const grouped = filtered.reduce<Record<string, Indicador[]>>((acc, i) => {
+  const grouped = filtered.reduce<Record<string, IndicadorSGC[]>>((acc, i) => {
     const bucket = acc[i.proceso] ?? []
     bucket.push(i)
     acc[i.proceso] = bucket

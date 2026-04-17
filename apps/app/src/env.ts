@@ -28,6 +28,10 @@ export const env = createEnv({
     // Convex — Nombre del deployment (e.g. "dev:mi-proyecto-abc123")
     // Usado por el CLI de Convex, no por el cliente
     CONVEX_DEPLOYMENT: z.string().min(1),
+
+    // Tenant activo en localhost (no hay subdominio en desarrollo local)
+    // En producción se ignora — el tenant se resuelve por subdominio
+    DEV_ORG_SLUG: z.string().min(1).optional(),
   },
 
   // ── Variables de cliente (expuestas al browser, prefijo VITE_) ──────────
@@ -41,17 +45,23 @@ export const env = createEnv({
   },
 
   // ── Valores en runtime ───────────────────────────────────────────────────
-  // Vite maneja el contexto: process.env para server, import.meta.env para client.
-  // Ambos leen desde el .env.local en la raíz del monorepo.
+  // vite.config.ts carga todas las vars en process.env via loadEnv().
+  // Las vars de servidor usan process.env (disponibles en SSR).
+  // Las vars de cliente usan import.meta.env (solo VITE_* llegan al browser).
   runtimeEnv: {
     WORKOS_API_KEY: process.env.WORKOS_API_KEY,
     WORKOS_CLIENT_ID: process.env.WORKOS_CLIENT_ID,
     WORKOS_REDIRECT_URI: process.env.WORKOS_REDIRECT_URI,
     WORKOS_COOKIE_SECRET: process.env.WORKOS_COOKIE_SECRET,
     CONVEX_DEPLOYMENT: process.env.CONVEX_DEPLOYMENT,
+    DEV_ORG_SLUG: process.env.DEV_ORG_SLUG,
     VITE_CONVEX_URL: import.meta.env.VITE_CONVEX_URL,
     VITE_WORKOS_CLIENT_ID: import.meta.env.VITE_WORKOS_CLIENT_ID,
   },
+
+  // En Vite, import.meta.env.SSR es true en el server y false en el browser.
+  // Sin esto, env-core intenta validar las vars de servidor en el cliente (donde son undefined).
+  isServer: import.meta.env.SSR,
 
   // Omite validación en tests para no necesitar un .env en CI
   skipValidation: process.env.NODE_ENV === 'test',

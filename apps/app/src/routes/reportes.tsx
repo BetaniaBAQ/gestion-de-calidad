@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { useSedes } from '#/lib/domain/config'
-import { useDocumentos, useDocumentosVencidos } from '#/lib/domain/documentos'
+import { useDocumentos } from '#/lib/domain/documentos'
 import {
   autoForSede,
   computeChecklistEstado,
@@ -22,16 +22,13 @@ import {
 } from '#/lib/domain/habilitacion'
 import { useAcciones, usePamecStats } from '#/lib/domain/pamec'
 import {
-  completitudPersona,
   estadoCompletitud,
   pendientesValidacion,
   resolveRequisitos,
   useCargos,
   usePersonasTodas,
 } from '#/lib/domain/personal'
-import type { Persona, Sede } from '#/lib/types'
 import { scoreSede } from '#/lib/utils-sgc'
-import { usePersonalStore } from '#/lib/stores/personal.store'
 
 export const Route = createFileRoute('/reportes')({
   component: ReportesPage,
@@ -40,9 +37,9 @@ export const Route = createFileRoute('/reportes')({
 function ReportesPage() {
   const sedes = useSedes()
   const [activeSedeId, setActiveSedeId] = useState(
-    sedes.find((s) => s.activa)?.id ?? 'BAQ'
+    sedes.find((s) => s.activa)?.codigo ?? 'BAQ'
   )
-  const sede = sedes.find((s) => s.id === activeSedeId)
+  const sede = sedes.find((s) => s.codigo === activeSedeId)
 
   return (
     <div className="space-y-4">
@@ -51,10 +48,10 @@ function ReportesPage() {
           .filter((s) => s.activa)
           .map((s) => (
             <Button
-              key={s.id}
+              key={s._id}
               size="sm"
-              variant={s.id === activeSedeId ? 'default' : 'outline'}
-              onClick={() => setActiveSedeId(s.id)}
+              variant={s.codigo === activeSedeId ? 'default' : 'outline'}
+              onClick={() => setActiveSedeId(s.codigo)}
             >
               {s.ciudad}
             </Button>
@@ -69,11 +66,15 @@ function ReportesPage() {
   )
 }
 
-function ReporteContent({ sede }: { sede: Sede }) {
+function ReporteContent({
+  sede,
+}: {
+  sede: ReturnType<typeof useSedes>[number]
+}) {
   const personas = usePersonasTodas()
   const cargos = useCargos()
-  const personasSede = personas.filter((p) => p.sede === sede.id)
-  const score = scoreSede(personas, cargos, sede.id)
+  const personasSede = personas.filter((p) => p.sede === sede.codigo)
+  const score = scoreSede(personas, cargos, sede.codigo)
   const docs = useDocumentos()
   const docsValidados = docs.filter((d) => d.estado === 'vigente').length
   const alertasReq = personasSede.flatMap((p) =>
@@ -84,8 +85,8 @@ function ReporteContent({ sede }: { sede: Sede }) {
   const habs = useHabilitacionesAll()
   const autoAll = useAutoVerificacionPorSede()
   const items = computeChecklistEstado(
-    habs[sede.id],
-    autoForSede(autoAll, sede.id)
+    habs[sede.codigo],
+    autoForSede(autoAll, sede.codigo)
   )
   const cumplen = items.filter((i) => i.estado === 'cumple').length
   const pamec = usePamecStats()
@@ -118,7 +119,7 @@ function ReporteContent({ sede }: { sede: Sede }) {
         </header>
 
         <div className="flex flex-wrap gap-1">
-          {(sede.servicios ?? []).map((s) => (
+          {(sede.servicios).map((s) => (
             <Badge key={s} variant="secondary" className="text-[0.6rem]">
               {s}
             </Badge>
@@ -252,11 +253,11 @@ function ExportPdfButton({ sedeId }: { sedeId: string }) {
   ).length
 
   const handleExport = async () => {
-    const sede = sedes.find((s) => s.id === sedeId)
+    const sede = sedes.find((s) => s.codigo === sedeId)
     if (!sede) return
 
-    const personasSede = personas.filter((p) => p.sede === sede.id)
-    const score = scoreSede(personas, cargos, sede.id)
+    const personasSede = personas.filter((p) => p.sede === sede.codigo)
+    const score = scoreSede(personas, cargos, sede.codigo)
     const docsValidados = docs.filter((d) => d.estado === 'vigente').length
     const alertasReq = personasSede.flatMap((p) =>
       resolveRequisitos(p)
@@ -266,8 +267,8 @@ function ExportPdfButton({ sedeId }: { sedeId: string }) {
         .map((r) => ({ persona: p.nombre, ...r }))
     )
     const items = computeChecklistEstado(
-      habs[sede.id],
-      autoForSede(autoAll, sede.id)
+      habs[sede.codigo],
+      autoForSede(autoAll, sede.codigo)
     )
     const cumplen = items.filter((i) => i.estado === 'cumple').length
 
@@ -300,7 +301,7 @@ function ExportPdfButton({ sedeId }: { sedeId: string }) {
         ciudad={sede.ciudad}
         departamento={sede.departamento ?? ''}
         fechaHoy={fechaHoy}
-        servicios={sede.servicios ?? []}
+        servicios={sede.servicios}
         scoreGlobal={score.label}
         atencionRequerida={score.valor < 80}
         kpis={{
@@ -325,7 +326,7 @@ function ExportPdfButton({ sedeId }: { sedeId: string }) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `reporte-visita-${sede.id}-${new Date().toISOString().slice(0, 10)}.pdf`
+    a.download = `reporte-visita-${sede.codigo}-${new Date().toISOString().slice(0, 10)}.pdf`
     a.click()
     URL.revokeObjectURL(url)
   }

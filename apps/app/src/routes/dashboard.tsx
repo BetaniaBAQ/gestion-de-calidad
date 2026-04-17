@@ -1,18 +1,16 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
-  AlertTriangle,
   ArrowRight,
   Building2,
   CheckCircle2,
   ClipboardCheck,
-  FileText,
   GraduationCap,
   Hospital,
   ShieldAlert,
   Stethoscope,
   Users,
 } from 'lucide-react'
-import { CAPACITACIONES_PROGRAMADAS0, HAB0 } from '#/lib/data'
+import { CAPACITACIONES_PROGRAMADAS0 } from '#/lib/data'
 import {
   useScoreGlobal,
   useSedeActiva,
@@ -20,13 +18,14 @@ import {
   useSedesActivas,
   useVistaCompleta,
 } from '#/lib/domain/config'
-import { useDocumentos, useDocumentosVencidos } from '#/lib/domain/documentos'
+import { useDocumentosVencidos } from '#/lib/domain/documentos'
 import {
   useEquipos,
   useEquiposProximos,
   useEquiposVencidos,
 } from '#/lib/domain/equipos'
 import {
+  useCargos,
   usePendientesValidacion,
   usePersonas,
   usePersonasTodas,
@@ -39,7 +38,6 @@ import {
   useHabilitacionesAll,
 } from '#/lib/domain/habilitacion'
 import { scoreSede, diasHasta } from '#/lib/utils-sgc'
-import { usePersonalStore } from '#/lib/stores/personal.store'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
@@ -57,13 +55,12 @@ function DashboardPage() {
 
   const personasVisible = usePersonas()
   const personasTodas = usePersonasTodas()
-  const cargos = usePersonalStore((s) => s.cargos)
+  const cargos = useCargos()
 
   const equipos = useEquipos()
   const equiposVencidos = useEquiposVencidos()
   const equiposProximos = useEquiposProximos()
 
-  const documentos = useDocumentos()
   const docsVencidos = useDocumentosVencidos()
 
   const pendientes = usePendientesValidacion()
@@ -136,11 +133,13 @@ function DashboardPage() {
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {sedesActivas.map((sede) => {
-            const score = scoreSede(personasTodas, cargos, sede.id)
-            const personalSede = personasTodas.filter((p) => p.sede === sede.id)
-            const equiposSede = equipos.filter((e) => e.sede === sede.id)
-            const hab = habilitaciones[sede.id]
-            const auto = autoForSede(autoAll, sede.id)
+            const score = scoreSede(personasTodas, cargos, sede.codigo)
+            const personalSede = personasTodas.filter(
+              (p) => p.sede === sede.codigo
+            )
+            const equiposSede = equipos.filter((e) => e.sede === sede.codigo)
+            const hab = habilitaciones[sede.codigo]
+            const auto = autoForSede(autoAll, sede.codigo)
             const checklistItems = computeChecklistEstado(hab, auto)
             const cumplen = checklistItems.filter(
               (i) => i.estado === 'cumple'
@@ -152,10 +151,10 @@ function DashboardPage() {
                   .length,
               0
             )
-            const isActive = sede.id === sedeActiva && !vistaCompleta
+            const isActive = sede.codigo === sedeActiva && !vistaCompleta
             return (
               <Card
-                key={sede.id}
+                key={sede._id}
                 className={isActive ? 'ring-1 ring-primary/70' : ''}
               >
                 <CardContent className="pt-4 space-y-2">
@@ -214,7 +213,7 @@ function DashboardPage() {
           </p>
           <div className="space-y-2">
             {pendientes.slice(0, 5).map((p, i) => {
-              const sede = sedes.find((s) => s.id === p.persona.sede)
+              const sede = sedes.find((s) => s.codigo === p.persona.sede)
               return (
                 <div
                   key={`${p.persona.id}-${p.def.id}-${i}`}
@@ -261,7 +260,7 @@ function DashboardPage() {
           </p>
           <div className="space-y-2">
             {alertasReq.slice(0, 10).map((a, i) => {
-              const sede = sedes.find((s) => s.id === a.persona.sede)
+              const sede = sedes.find((s) => s.codigo === a.persona.sede)
               const label =
                 a.estado === 'VENCIDO'
                   ? a.fechaVigencia

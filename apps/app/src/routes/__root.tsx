@@ -3,8 +3,13 @@ import {
   HeadContent,
   Link,
   Scripts,
+  redirect,
   useLocation,
 } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
+import { ConvexProvider } from 'convex/react'
+import type { SessionData } from '#/lib/auth.server'
+import { convexClient } from '#/lib/convex'
 import {
   BadgeCheck,
   Building2,
@@ -22,6 +27,7 @@ import {
   PlaySquare,
   Settings,
   Stethoscope,
+  Swords,
   TrendingUp,
   Users,
   Wrench,
@@ -34,8 +40,6 @@ import {
   useSetSedeActiva,
   useVistaCompleta,
   useSetVistaCompleta,
-  useUsuarioActual,
-  useLogout,
   useScoreGlobal,
 } from '#/lib/domain/config'
 import { Badge } from '#/components/ui/badge'
@@ -63,7 +67,52 @@ import {
 } from '#/components/ui/sidebar'
 import { Toggle } from '#/components/ui/toggle'
 import { StoreHydrator } from '#/lib/hydration'
+import { OrgContext } from '#/lib/org-context'
 import appCss from '../styles.css?url'
+
+// ─── Server function: lee la sesión desde la cookie ─────────────────────────
+const getSessionFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { getSession } = await import('#/lib/auth.server')
+  return getSession()
+})
+
+// ─── Server function: cierra la sesión ───────────────────────────────────────
+// Borra la sesión local y revoca las sesiones de WorkOS para el usuario.
+// Devuelve la URL de login de WorkOS para que el cliente navegue allí.
+const logoutFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { getSession, clearSession, workos } = await import('#/lib/auth.server')
+  const { env } = await import('#/env')
+  const session = await getSession()
+  await clearSession()
+
+  // Revocar todas las sesiones activas del usuario en WorkOS
+  if (session?.userId) {
+    try {
+      const { data: sessions } = await workos.userManagement.listSessions(
+        session.userId
+      )
+      await Promise.all(
+        sessions.map((s) =>
+          workos.userManagement.revokeSession({ sessionId: s.id })
+        )
+      )
+      console.log('[logout] sesiones WorkOS revocadas:', sessions.length)
+    } catch (e) {
+      console.warn(
+        '[logout] revokeSession falló (sessions no habilitadas?):',
+        e
+      )
+    }
+  }
+
+  // Devolver URL de login de WorkOS
+  return workos.userManagement.getAuthorizationUrl({
+    clientId: env.WORKOS_CLIENT_ID,
+    redirectUri: env.WORKOS_REDIRECT_URI,
+    provider: 'authkit',
+    prompt: 'login',
+  })
+})
 
 type NavItem = {
   to: string
@@ -83,6 +132,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/procesos', label: 'Procesos Prioritarios', icon: GitBranch },
   { to: '/pamec', label: 'PAMEC', icon: BadgeCheck },
   { to: '/auditoria', label: 'Auditoría en vivo', icon: PlaySquare },
+  { to: '/grill-me', label: 'Simulacro inspección', icon: Swords },
   { to: '/reportes', label: 'Reporte visita', icon: FileBarChart },
   { to: '/config', label: 'Configuración', icon: Settings },
 ] as const
@@ -99,11 +149,22 @@ const PAGE_HEADERS: Record<string, { title: string }> = {
   '/procesos': { title: 'Procesos Prioritarios' },
   '/pamec': { title: 'PAMEC' },
   '/auditoria': { title: 'Auditoría en vivo' },
+  '/grill-me': { title: 'Simulacro de inspección' },
   '/reportes': { title: 'Reporte visita' },
   '/config': { title: 'Configuración' },
 }
 
 export const Route = createRootRoute({
+  // Guard: redirige a /auth/login si no hay sesión activa.
+  // Las rutas /auth/* están exentas.
+  beforeLoad: async ({ location }) => {
+    if (location.pathname.startsWith('/auth')) {
+      return { session: null as SessionData | null }
+    }
+    const session = await getSessionFn()
+    if (!session) throw redirect({ to: '/auth/login' })
+    return { session }
+  },
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -121,8 +182,11 @@ function AppSidebar() {
   const setSedeActiva = useSetSedeActiva()
   const sedeNombre = useSedeActivaNombre()
   const vistaCompleta = useVistaCompleta()
-  const usuarioActual = useUsuarioActual()
   const scoreG = useScoreGlobal()
+  const { session } = Route.useRouteContext()
+  const nombreUsuario = session?.firstName
+    ? [session.firstName, session.lastName].filter(Boolean).join(' ')
+    : (session?.email ?? 'Usuario')
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
@@ -150,7 +214,7 @@ function AppSidebar() {
             {sedes
               .filter((s) => s.activa)
               .map((s) => (
-                <option key={s.id} value={s.id}>
+                <option key={s._id} value={s.codigo}>
                   {s.ciudad}
                 </option>
               ))}
@@ -198,14 +262,14 @@ function AppSidebar() {
         </div>
         <div className="flex items-center gap-2 px-2 py-1 group-data-[collapsible=icon]:hidden">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">
-            {usuarioActual?.nombre.charAt(0) ?? 'A'}
+            {nombreUsuario.charAt(0).toUpperCase()}
           </div>
           <div className="flex flex-col min-w-0">
             <span className="text-xs font-medium text-foreground truncate">
-              {usuarioActual?.nombre ?? 'Usuario'}
+              {nombreUsuario}
             </span>
-            <span className="text-xs text-muted-foreground truncate capitalize">
-              {usuarioActual?.rol ?? ''}
+            <span className="text-xs text-muted-foreground truncate">
+              {session?.orgSlug ?? ''}
             </span>
           </div>
         </div>
@@ -219,8 +283,10 @@ function HeaderBar() {
   const vistaCompleta = useVistaCompleta()
   const setVistaCompleta = useSetVistaCompleta()
   const sedeNombre = useSedeActivaNombre()
-  const usuarioActual = useUsuarioActual()
-  const logout = useLogout()
+  const { session } = Route.useRouteContext()
+  const nombreUsuario = session?.firstName
+    ? [session.firstName, session.lastName].filter(Boolean).join(' ')
+    : (session?.email ?? 'Usuario')
 
   const pageHeader = PAGE_HEADERS[location.pathname] ?? { title: 'SGC' }
 
@@ -262,28 +328,31 @@ function HeaderBar() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
-              {usuarioActual?.nombre.charAt(0) ?? 'U'}
+              {nombreUsuario.charAt(0).toUpperCase()}
             </div>
             <span className="hidden sm:inline text-xs font-medium">
-              {usuarioActual?.nombre ?? 'Usuario'}
+              {nombreUsuario}
             </span>
-            <Badge variant="secondary" className="hidden md:inline capitalize">
-              {usuarioActual?.rol ?? ''}
+            <Badge variant="secondary" className="hidden md:inline">
+              {session?.orgSlug ?? ''}
             </Badge>
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>
-            {usuarioActual?.nombre ?? 'Usuario'}
-          </DropdownMenuLabel>
+          <DropdownMenuLabel>{nombreUsuario}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled>
             <MapPin className="mr-2 h-4 w-4" />
             {sedeNombre}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={logout}>
+          <DropdownMenuItem
+            onClick={async () => {
+              const url = await logoutFn()
+              window.location.href = url
+            }}
+          >
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar sesión
           </DropdownMenuItem>
@@ -294,24 +363,47 @@ function HeaderBar() {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+  const isAuthRoute = location.pathname.startsWith('/auth')
+  const { session } = Route.useRouteContext()
+
+  // ConvexProvider siempre está en el árbol para evitar que useQuery falle
+  // durante la transición dashboard → rutas /auth (desmontado antes que los hijos).
+  // Las queries en rutas /auth no se ejecutan porque orgId es '' (skip).
   return (
     <html lang="es" className="dark">
       <head>
         <HeadContent />
       </head>
-      <body className="bg-background text-foreground antialiased">
-        <StoreHydrator />
-        <SidebarProvider>
-          <AppSidebar />
-          <div className="flex flex-col flex-1 min-w-0">
-            <HeaderBar />
-            <div className="flex items-center gap-1 border-b border-border px-4 py-1.5 text-xs text-muted-foreground">
-              <Building2 className="h-3 w-3" />
-              <span>Instituto Oncohematológico Betania</span>
-            </div>
-            <main className="flex-1 overflow-auto p-6">{children}</main>
-          </div>
-        </SidebarProvider>
+      <body
+        className={
+          isAuthRoute
+            ? 'bg-background text-foreground antialiased flex min-h-svh items-center justify-center'
+            : 'bg-background text-foreground antialiased'
+        }
+      >
+        <OrgContext.Provider value={session?.orgId ?? ''}>
+          <ConvexProvider client={convexClient}>
+            {isAuthRoute ? (
+              children
+            ) : (
+              <>
+                <StoreHydrator />
+                <SidebarProvider>
+                  <AppSidebar />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <HeaderBar />
+                    <div className="flex items-center gap-1 border-b border-border px-4 py-1.5 text-xs text-muted-foreground">
+                      <Building2 className="h-3 w-3" />
+                      <span>Instituto Oncohematológico Betania</span>
+                    </div>
+                    <main className="flex-1 overflow-auto p-6">{children}</main>
+                  </div>
+                </SidebarProvider>
+              </>
+            )}
+          </ConvexProvider>
+        </OrgContext.Provider>
         <Scripts />
       </body>
     </html>

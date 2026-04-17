@@ -24,7 +24,7 @@ export const useHabStore = create<HabilitacionState>()(
                 s.habilitaciones[sedeId]?.items.map((i) =>
                   i.id === itemId ? { ...i, ...data } : i
                 ) ?? [],
-            },
+            } as Habilitacion,
           },
         })),
       setRevision: (sedeId, fecha, responsable) =>
@@ -35,7 +35,7 @@ export const useHabStore = create<HabilitacionState>()(
               ...s.habilitaciones[sedeId],
               fechaRevision: fecha,
               responsable,
-            },
+            } as Habilitacion,
           },
         })),
       initSede: (sedeId, hab) =>

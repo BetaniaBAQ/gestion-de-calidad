@@ -1,26 +1,110 @@
-import { useIndicadoresStore } from '#/lib/stores/indicadores.store'
-import type { Indicador, MedicionIndicador } from '#/lib/types'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@cualia/convex'
+import { useOrgId } from '#/lib/org-context'
+import type { GenericId } from 'convex/values'
 
-export function useIndicadores(): Indicador[] {
-  return useIndicadoresStore((s) => s.indicadores)
+type IndicadorId = GenericId<'indicadores'>
+type MedicionId = GenericId<'mediciones_indicadores'>
+
+export type IndicadorSGC = {
+  _id: IndicadorId
+  id: string
+  nombre: string
+  descripcion: string
+  formula: string
+  meta: number
+  unidad: string
+  frecuencia: 'mensual' | 'trimestral' | 'semestral' | 'anual'
+  proceso: string
+  responsable: string
+  activo: boolean
+  umbralAlerta?: number
+  fuente?: string
 }
 
-export function useMediciones(): MedicionIndicador[] {
-  return useIndicadoresStore((s) => s.mediciones)
+export type MedicionSGC = {
+  _id: MedicionId
+  id: string
+  indicadorId: IndicadorId
+  periodo: string
+  valor: number
+  meta: number
+  responsable: string
+  fecha: string
+  observacion?: string
+  sedeId?: GenericId<'sedes'>
+}
+
+// ─── Hooks internos ─────────────────────────────────────────────────────────
+
+function useIndicadoresRaw() {
+  const orgId = useOrgId()
+  return useQuery(api.indicadores.listByOrg, orgId ? { orgId } : 'skip') ?? []
+}
+
+function useMedicionesRaw() {
+  const orgId = useOrgId()
+  return (
+    useQuery(api.indicadores.listMedicionesByOrg, orgId ? { orgId } : 'skip') ??
+    []
+  )
+}
+
+function projectIndicador(
+  doc: ReturnType<typeof useIndicadoresRaw>[number]
+): IndicadorSGC {
+  return { ...doc, id: doc._id }
+}
+
+function projectMedicion(
+  doc: ReturnType<typeof useMedicionesRaw>[number]
+): MedicionSGC {
+  return { ...doc, id: doc._id }
+}
+
+// ─── Hooks públicos ──────────────────────────────────────────────────────────
+
+export function useIndicadores(): IndicadorSGC[] {
+  return useIndicadoresRaw().map(projectIndicador)
+}
+
+export function useMediciones(): MedicionSGC[] {
+  return useMedicionesRaw().map(projectMedicion)
 }
 
 export function useIndicadorById(
   id: string | undefined
-): Indicador | undefined {
-  return useIndicadoresStore((s) =>
-    id ? s.indicadores.find((i) => i.id === id) : undefined
-  )
+): IndicadorSGC | undefined {
+  return useIndicadoresRaw()
+    .map(projectIndicador)
+    .find((i) => i._id === id)
 }
 
-// Agrupa indicadores por módulo (proceso)
-export function useIndicadoresPorModulo(): Record<string, Indicador[]> {
+export function useCreateIndicador() {
+  return useMutation(api.indicadores.create)
+}
+
+export function useUpdateIndicador() {
+  return useMutation(api.indicadores.update)
+}
+
+export function useRemoveIndicador() {
+  return useMutation(api.indicadores.remove)
+}
+
+export function useCreateMedicion() {
+  return useMutation(api.indicadores.createMedicion)
+}
+
+export function useUpdateMedicion() {
+  return useMutation(api.indicadores.updateMedicion)
+}
+
+// ─── Utilidades ──────────────────────────────────────────────────────────────
+
+export function useIndicadoresPorModulo(): Record<string, IndicadorSGC[]> {
   const inds = useIndicadores()
-  return inds.reduce<Record<string, Indicador[]>>((acc, i) => {
+  return inds.reduce<Record<string, IndicadorSGC[]>>((acc, i) => {
     const bucket = acc[i.proceso] ?? []
     bucket.push(i)
     acc[i.proceso] = bucket

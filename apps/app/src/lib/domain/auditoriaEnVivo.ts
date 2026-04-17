@@ -2,12 +2,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { AUDITORIA_EN_VIVO_ITEMS } from '#/lib/data-catalogs'
 import type {
-  Auditoria,
   AuditoriaEnCurso,
   AuditoriaItemVivo,
   AuditoriaRespuestaVivo,
 } from '#/lib/types'
-import { useAuditoriaStore } from '#/lib/stores/auditoria.store'
 
 interface AuditoriaVivoState {
   enCurso: AuditoriaEnCurso | null
@@ -50,38 +48,7 @@ export const useAuditoriaVivoStore = create<AuditoriaVivoState>()(
         if (!current) return
         set({ enCurso: { ...current, currentStep: n } })
       },
-      finalizar: () => {
-        const current = get().enCurso
-        if (!current) return
-        const id = `AUD-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`
-        const hallazgos = current.respuestas
-          .filter((r) => r.cumple === 'no')
-          .map((r, idx) => {
-            const item = AUDITORIA_EN_VIVO_ITEMS.find((i) => i.id === r.itemId)
-            return {
-              id: `${id}-h${idx + 1}`,
-              tipo: 'no_conformidad' as const,
-              descripcion: item?.descripcion ?? r.itemId,
-              criterio: item?.normaReferencia ?? 'Auditoría en vivo',
-              estado: 'abierto' as const,
-              accionCorrectiva: r.observacion,
-            }
-          })
-        const nueva: Auditoria = {
-          id,
-          tipo: 'interna',
-          proceso: 'Auditoría en vivo',
-          sede: current.sedeId,
-          auditor: current.auditor,
-          fechaInicio: current.iniciadaEn.slice(0, 10),
-          fechaFin: new Date().toISOString().slice(0, 10),
-          estado: 'cerrada',
-          hallazgos,
-          observaciones: `Auditoría generada desde modo en vivo · ${current.respuestas.length}/${AUDITORIA_EN_VIVO_ITEMS.length} ítems`,
-        }
-        useAuditoriaStore.getState().addAuditoria(nueva)
-        set({ enCurso: null })
-      },
+      finalizar: () => set({ enCurso: null }),
       descartar: () => set({ enCurso: null }),
     }),
     { name: 'sgc-auditoria-vivo', skipHydration: true }

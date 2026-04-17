@@ -36,22 +36,24 @@ import {
   diasTranscurridos,
   usePqrsStats,
   usePqrsTodas,
+  useCreatePqrs,
+  useUpdatePqrs,
 } from '#/lib/domain/pqrs'
-import { usePqrsStore } from '#/lib/stores/pqrs.store'
-import type { PQRS } from '#/lib/types'
+import type { PqrsSGC } from '#/lib/domain/pqrs'
+import { useOrgId } from '#/lib/org-context'
 
 export const Route = createFileRoute('/procesos')({
   component: ProcesosPage,
 })
 
-const TIPO_LABELS: Record<PQRS['tipo'], string> = {
+const TIPO_LABELS: Record<PqrsSGC['tipo'], string> = {
   peticion: 'Petición',
   queja: 'Queja',
   reclamo: 'Reclamo',
   sugerencia: 'Sugerencia',
 }
 
-const ESTADO_LABELS: Record<PQRS['estado'], string> = {
+const ESTADO_LABELS: Record<PqrsSGC['estado'], string> = {
   recibido: 'Recibido',
   en_tramite: 'En trámite',
   respondido: 'Respondido',
@@ -59,8 +61,8 @@ const ESTADO_LABELS: Record<PQRS['estado'], string> = {
   vencido: 'Vencido',
 }
 
-function EstadoBadge({ estado }: { estado: PQRS['estado'] }) {
-  const cls: Record<PQRS['estado'], string> = {
+function EstadoBadge({ estado }: { estado: PqrsSGC['estado'] }) {
+  const cls: Record<PqrsSGC['estado'], string> = {
     recibido: 'bg-blue-400/20 text-blue-400 border-blue-400/40',
     en_tramite: 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40',
     respondido: 'bg-emerald-400/20 text-emerald-400 border-emerald-400/40',
@@ -74,7 +76,9 @@ function EstadoBadge({ estado }: { estado: PQRS['estado'] }) {
   )
 }
 
-const EMPTY: Omit<PQRS, 'id'> = {
+type PqrsFormData = Omit<PqrsSGC, '_id' | 'id' | 'sedeId'>
+
+const EMPTY: PqrsFormData = {
   tipo: 'peticion',
   radicado: '',
   fecha: new Date().toISOString().slice(0, 10),
@@ -92,29 +96,28 @@ function PqrsForm({
   onCancel,
   sedes,
 }: {
-  initial: Partial<PQRS>
-  onSave: (p: PQRS) => void
+  initial: Partial<PqrsFormData>
+  onSave: (p: PqrsFormData) => void
   onCancel: () => void
-  sedes: { id: string; ciudad: string }[]
+  sedes: { _id: string; codigo: string; ciudad: string }[]
 }) {
   const [form, setForm] = useState({ ...EMPTY, ...initial })
 
-  function field<TKey extends keyof typeof EMPTY>(
+  function field<TKey extends keyof PqrsFormData>(
     k: TKey,
-    v: (typeof EMPTY)[TKey]
+    v: PqrsFormData[TKey]
   ) {
     setForm((f) => ({ ...f, [k]: v }))
   }
 
-  const isEdit = !!initial.id
+  const isEdit = !!initial.radicado
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    const id = initial.id ?? `PQRS-${Date.now()}`
     const radicado =
       form.radicado ||
       `PQR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
-    onSave({ ...form, id, radicado } as PQRS)
+    onSave({ ...form, radicado })
   }
 
   return (
@@ -124,7 +127,7 @@ function PqrsForm({
           <Label>Tipo *</Label>
           <Select
             value={form.tipo}
-            onValueChange={(v) => field('tipo', v as PQRS['tipo'])}
+            onValueChange={(v) => field('tipo', v as PqrsSGC['tipo'])}
           >
             <SelectTrigger>
               <SelectValue />
@@ -157,7 +160,7 @@ function PqrsForm({
             </SelectTrigger>
             <SelectContent>
               {sedes.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
+                <SelectItem key={s._id} value={s.codigo}>
                   {s.ciudad}
                 </SelectItem>
               ))}
@@ -200,7 +203,7 @@ function PqrsForm({
               <Label>Estado</Label>
               <Select
                 value={form.estado}
-                onValueChange={(v) => field('estado', v as PQRS['estado'])}
+                onValueChange={(v) => field('estado', v as PqrsSGC['estado'])}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -256,21 +259,55 @@ function PqrsForm({
 }
 
 function ProcesosPage() {
+  const orgId = useOrgId()
   const stats = usePqrsStats()
   const adh = useAdherenciaPromedio()
   const pqrs = usePqrsTodas()
   const gpcs = useGpcs()
   const sedes = useSedes()
-  const addPqrs = usePqrsStore((s) => s.addPqrs)
-  const updatePqrs = usePqrsStore((s) => s.updatePqrs)
+  const createPqrs = useCreatePqrs()
+  const updatePqrs = useUpdatePqrs()
 
   const [dialog, setDialog] = useState<
-    null | { mode: 'add' } | { mode: 'edit'; pqr: PQRS }
+    null | { mode: 'add' } | { mode: 'edit'; pqr: PqrsSGC }
   >(null)
 
-  function handleSave(p: PQRS) {
-    if (dialog?.mode === 'edit') updatePqrs(p.id, p)
-    else addPqrs(p)
+  async function handleSave(data: PqrsFormData) {
+    const sede = sedes.find((s) => s.codigo === data.sede)
+    if (!orgId || !sede) return
+    if (dialog?.mode === 'edit') {
+      await updatePqrs({
+        id: dialog.pqr._id,
+        sedeCodigo: data.sede,
+        sedeId: sede._id,
+        tipo: data.tipo,
+        radicado: data.radicado,
+        fecha: data.fecha,
+        nombreInteresado: data.nombreInteresado,
+        contacto: data.contacto,
+        descripcion: data.descripcion,
+        responsable: data.responsable,
+        estado: data.estado,
+        respuesta: data.respuesta,
+        fechaRespuesta: data.fechaRespuesta,
+      })
+    } else {
+      await createPqrs({
+        orgId,
+        sedeId: sede._id,
+        sedeCodigo: data.sede,
+        tipo: data.tipo,
+        radicado: data.radicado,
+        fecha: data.fecha,
+        nombreInteresado: data.nombreInteresado,
+        contacto: data.contacto,
+        descripcion: data.descripcion,
+        responsable: data.responsable,
+        estado: data.estado,
+        respuesta: data.respuesta,
+        fechaRespuesta: data.fechaRespuesta,
+      })
+    }
     setDialog(null)
   }
 
@@ -338,9 +375,9 @@ function ProcesosPage() {
                 </TableHeader>
                 <TableBody>
                   {pqrs.map((p) => {
-                    const sede = sedes.find((s) => s.id === p.sede)
+                    const sede = sedes.find((s) => s.codigo === p.sede)
                     return (
-                      <TableRow key={p.id}>
+                      <TableRow key={p._id}>
                         <TableCell className="font-mono text-xs">
                           {p.radicado}
                         </TableCell>
@@ -477,7 +514,7 @@ function ProcesosPage() {
           {dialog !== null && (
             <PqrsForm
               initial={dialog.mode === 'edit' ? dialog.pqr : {}}
-              onSave={handleSave}
+              onSave={(data) => void handleSave(data)}
               onCancel={() => setDialog(null)}
               sedes={sedes.filter((s) => s.activa)}
             />

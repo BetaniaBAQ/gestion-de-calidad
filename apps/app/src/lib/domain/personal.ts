@@ -1,73 +1,151 @@
-import { REQUISITOS_POR_CARGO } from '#/lib/data-catalogs'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@cualia/convex'
+import { useOrgId } from '#/lib/org-context'
 import { useConfigStore } from '#/lib/stores/config.store'
-import { usePersonalStore } from '#/lib/stores/personal.store'
+import { REQUISITOS_POR_CARGO } from '#/lib/data-catalogs'
+import type { GenericId } from 'convex/values'
 import type {
-  Cargo,
   EstadoRequisito,
-  Persona,
   RequisitoDef,
   RequisitoEstado,
 } from '#/lib/types'
 
-export function usePersonas(): Persona[] {
-  const personas = usePersonalStore((s) => s.personas)
-  const sedeActiva = useConfigStore((s) => s.sedeActiva)
-  const vistaCompleta = useConfigStore((s) => s.vistaCompleta)
-  return vistaCompleta
-    ? personas
-    : personas.filter((p) => p.sede === sedeActiva)
+type PersonaId = GenericId<'personal'>
+type CargoId = GenericId<'cargos'>
+type SedeId = GenericId<'sedes'>
+
+// ─── Tipos proyectados ──────────────────────────────────────────────────────
+
+export type PersonaSGC = {
+  _id: PersonaId
+  id: string // alias de _id
+  nombre: string
+  cedula: string
+  cargo: string // cargoCodigo — usado por REQUISITOS_POR_CARGO
+  cargoId: CargoId
+  sede: string // sedeCodigo — usado por filtros de sede
+  sedeId: SedeId
+  fechaIngreso: string
+  estado: 'activo' | 'inactivo' | 'vacaciones' | 'licencia'
+  requisitos: RequisitoEstado[]
+  docs: [] // placeholder para compatibilidad con Persona legacy
+  caps: [] // placeholder para compatibilidad con Persona legacy
 }
 
-export function usePersonasTodas(): Persona[] {
-  return usePersonalStore((s) => s.personas)
+export type CargoSGC = {
+  _id: CargoId
+  id: string // alias de codigo — usado por lookups legacy
+  codigo: string
+  nombre: string
+  area: string
+  perfil: string
+  docRequeridos: string[]
+  capRequeridas: string[]
 }
 
-export function usePersona(id: string | undefined): Persona | undefined {
-  return usePersonalStore((s) =>
-    id ? s.personas.find((p) => p.id === id) : undefined
-  )
+// ─── Hooks internos ─────────────────────────────────────────────────────────
+
+function usePersonalRaw() {
+  const orgId = useOrgId()
+  return useQuery(api.personal.listByOrg, orgId ? { orgId } : 'skip') ?? []
 }
 
-export function useCargos(): Cargo[] {
-  return usePersonalStore((s) => s.cargos)
+function useCargosRaw() {
+  const orgId = useOrgId()
+  return useQuery(api.cargos.listByOrg, orgId ? { orgId } : 'skip') ?? []
 }
 
-export function useCargo(id: string | undefined): Cargo | undefined {
-  return usePersonalStore((s) =>
-    id ? s.cargos.find((c) => c.id === id) : undefined
-  )
-}
-
-export function useUpsertPersona() {
-  const addPersona = usePersonalStore((s) => s.addPersona)
-  const updatePersona = usePersonalStore((s) => s.updatePersona)
-  return (p: Persona) => {
-    const existing = usePersonalStore
-      .getState()
-      .personas.find((x) => x.id === p.id)
-    if (existing) updatePersona(p.id, p)
-    else addPersona(p)
+function projectPersona(
+  doc: ReturnType<typeof usePersonalRaw>[number]
+): PersonaSGC {
+  return {
+    ...doc,
+    id: doc._id,
+    cargo: doc.cargoCodigo,
+    sede: doc.sedeCodigo,
+    requisitos: (doc.requisitos ?? []) as RequisitoEstado[],
+    docs: [],
+    caps: [],
   }
 }
 
-export function useDeletePersona() {
-  return usePersonalStore((s) => s.deletePersona)
+function projectCargo(doc: ReturnType<typeof useCargosRaw>[number]): CargoSGC {
+  return {
+    ...doc,
+    id: doc.codigo,
+  }
 }
 
-// ─── Derivados de requisitos ────────────────────────────────────────────────
+// ─── Hooks públicos — Personal ───────────────────────────────────────────────
+
+export function usePersonas(): PersonaSGC[] {
+  const all = usePersonalRaw().map(projectPersona)
+  const sedeActiva = useConfigStore((s) => s.sedeActiva)
+  const vistaCompleta = useConfigStore((s) => s.vistaCompleta)
+  return vistaCompleta ? all : all.filter((p) => p.sede === sedeActiva)
+}
+
+export function usePersonasTodas(): PersonaSGC[] {
+  return usePersonalRaw().map(projectPersona)
+}
+
+export function usePersona(id: string | undefined): PersonaSGC | undefined {
+  return usePersonalRaw()
+    .map(projectPersona)
+    .find((p) => p._id === id)
+}
+
+export function useCreatePersona() {
+  return useMutation(api.personal.create)
+}
+
+export function useUpdatePersona() {
+  return useMutation(api.personal.update)
+}
+
+export function useRemovePersona() {
+  return useMutation(api.personal.remove)
+}
+
+// ─── Hooks públicos — Cargos ────────────────────────────────────────────────
+
+export function useCargos(): CargoSGC[] {
+  return useCargosRaw().map(projectCargo)
+}
+
+export function useCargo(id: string | undefined): CargoSGC | undefined {
+  if (!id) return undefined
+  return useCargosRaw()
+    .map(projectCargo)
+    .find((c) => c.codigo === id || c._id === id)
+}
+
+export function useCreateCargo() {
+  return useMutation(api.cargos.create)
+}
+
+export function useUpdateCargo() {
+  return useMutation(api.cargos.update)
+}
+
+export function useRemoveCargo() {
+  return useMutation(api.cargos.remove)
+}
+
+// ─── Lógica de requisitos ───────────────────────────────────────────────────
 
 export function getRequisitosDefsByCargo(cargoId: string): RequisitoDef[] {
   return REQUISITOS_POR_CARGO[cargoId] ?? []
 }
 
-export function resolveRequisitos(persona: Persona): Array<{
+export function resolveRequisitos(persona: PersonaSGC): Array<{
   def: RequisitoDef
   estado: EstadoRequisito
   fechaVigencia: string | null
 }> {
   const defs = getRequisitosDefsByCargo(persona.cargo)
   const byId = new Map<string, RequisitoEstado>()
-  for (const r of persona.requisitos ?? []) byId.set(r.defId, r)
+  for (const r of persona.requisitos) byId.set(r.defId, r)
   return defs.map((def) => {
     const r = byId.get(def.id)
     return {
@@ -78,7 +156,7 @@ export function resolveRequisitos(persona: Persona): Array<{
   })
 }
 
-export function completitudPersona(persona: Persona): number {
+export function completitudPersona(persona: PersonaSGC): number {
   const items = resolveRequisitos(persona)
   if (items.length === 0) return 0
   const completos = items.filter((i) => i.estado === 'VIGENTE').length
@@ -86,7 +164,7 @@ export function completitudPersona(persona: Persona): number {
 }
 
 export function estadoCompletitud(
-  persona: Persona
+  persona: PersonaSGC
 ): 'Crítico' | 'Alerta' | 'OK' {
   const pct = completitudPersona(persona)
   if (pct < 80) return 'Crítico'
@@ -94,7 +172,7 @@ export function estadoCompletitud(
   return 'OK'
 }
 
-export function pendientesValidacion(persona: Persona): number {
+export function pendientesValidacion(persona: PersonaSGC): number {
   return resolveRequisitos(persona).filter((i) => i.estado === 'POR_VALIDAR')
     .length
 }
@@ -102,13 +180,11 @@ export function pendientesValidacion(persona: Persona): number {
 // ─── Selectores agregados ───────────────────────────────────────────────────
 
 export function useCountPorValidar(): number {
-  const personas = usePersonalStore((s) => s.personas)
-  return personas.reduce((acc, p) => acc + pendientesValidacion(p), 0)
+  return usePersonas().reduce((acc, p) => acc + pendientesValidacion(p), 0)
 }
 
 export function useCountPersonalCompleta(): number {
-  const personas = usePersonalStore((s) => s.personas)
-  return personas.filter((p) => completitudPersona(p) === 100).length
+  return usePersonas().filter((p) => completitudPersona(p) === 100).length
 }
 
 export function usePersonalCount(): number {
@@ -116,21 +192,20 @@ export function usePersonalCount(): number {
 }
 
 export function usePersonalTodosCount(): number {
-  return usePersonalStore((s) => s.personas.length)
+  return usePersonasTodas().length
 }
 
 export function useAlertasRequisitosPorSede() {
   const personas = usePersonas()
-  const items = personas.flatMap((p) =>
-    resolveRequisitos(p).map((r) => ({ persona: p, ...r }))
-  )
-  return items.filter(
-    (i) =>
-      i.estado === 'VENCIDO' ||
-      i.estado === 'CRITICO' ||
-      i.estado === 'SIN_CARGAR' ||
-      i.estado === 'POR_VALIDAR'
-  )
+  return personas
+    .flatMap((p) => resolveRequisitos(p).map((r) => ({ persona: p, ...r })))
+    .filter(
+      (i) =>
+        i.estado === 'VENCIDO' ||
+        i.estado === 'CRITICO' ||
+        i.estado === 'SIN_CARGAR' ||
+        i.estado === 'POR_VALIDAR'
+    )
 }
 
 export function usePendientesValidacion() {
@@ -140,4 +215,9 @@ export function usePendientesValidacion() {
       .filter((r) => r.estado === 'POR_VALIDAR')
       .map((r) => ({ persona: p, ...r }))
   )
+}
+
+// Compatibilidad con código que aún usa useUpsertPersona / useDeletePersona
+export function useDeletePersona() {
+  return useMutation(api.personal.remove)
 }
