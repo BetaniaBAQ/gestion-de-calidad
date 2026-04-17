@@ -1,11 +1,27 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowRight, Plus } from 'lucide-react'
+import { ArrowRight, Edit2, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { KpiMeta } from '#/components/kpi-meta'
 import { SedePills } from '#/components/sede-pills'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
+import { Input } from '#/components/ui/input'
+import { Label } from '#/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
 import {
   Sheet,
   SheetContent,
@@ -27,17 +43,25 @@ import { useSedes } from '#/lib/domain/config'
 import {
   completitudPersona,
   estadoCompletitud,
+  getRequisitosDefsByCargo,
   pendientesValidacion,
   resolveRequisitos,
   useCargos,
+  useCreatePersona,
   usePersonas,
   usePersonasTodas,
+  useRemovePersona,
+  useUpdatePersona,
 } from '#/lib/domain/personal'
-import type { PersonaSGC } from '#/lib/domain/personal'
+import type { CargoSGC, PersonaSGC } from '#/lib/domain/personal'
+import type { EstadoRequisito, RequisitoEstado } from '#/lib/types'
+import { useOrgId } from '#/lib/org-context'
 
 export const Route = createFileRoute('/personal')({
   component: PersonalPage,
 })
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 function PersonalPage() {
   const personasAll = usePersonasTodas()
@@ -45,18 +69,16 @@ function PersonalPage() {
   const cargos = useCargos()
   const sedes = useSedes()
 
+  const [sheetPersona, setSheetPersona] = useState<PersonaSGC | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editPersona, setEditPersona] = useState<PersonaSGC | null>(null)
+
   const totalCaps = CAPACITACIONES_PROGRAMADAS0.length
-  const capsEjec = CAPACITACIONES_PROGRAMADAS0.filter(
-    (c) => c.estado === 'ejecutada'
-  ).length
-  const pctCapsEjec =
-    totalCaps > 0 ? Math.round((capsEjec / totalCaps) * 1000) / 10 : 0
+  const capsEjec = CAPACITACIONES_PROGRAMADAS0.filter((c) => c.estado === 'ejecutada').length
+  const pctCapsEjec = totalCaps > 0 ? Math.round((capsEjec / totalCaps) * 1000) / 10 : 0
   const completas = personasAll.filter((p) => completitudPersona(p) === 100)
   const pctDocCompleta =
-    personasAll.length > 0
-      ? Math.round((completas.length / personasAll.length) * 1000) / 10
-      : 0
-  const pctCapsNorm = pctCapsEjec === 0 ? 20 : pctCapsEjec
+    personasAll.length > 0 ? Math.round((completas.length / personasAll.length) * 1000) / 10 : 0
 
   return (
     <div className="space-y-6">
@@ -75,9 +97,9 @@ function PersonalPage() {
         />
         <KpiMeta
           modulo="TALENTO HUMANO"
-          valor={`${pctCapsNorm}%`}
-          descripcion="% capacitaciones normativas ejecutadas"
-          meta="≥100%"
+          valor={`${personasAll.length}`}
+          descripcion="personas registradas"
+          meta=""
         />
       </div>
 
@@ -85,162 +107,672 @@ function PersonalPage() {
         <TabsList>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="suficiencia">Suficiencia TH</TabsTrigger>
-          <TabsTrigger value="cronograma">
-            Cronograma de capacitaciones
-          </TabsTrigger>
+          <TabsTrigger value="cronograma">Cronograma de capacitaciones</TabsTrigger>
         </TabsList>
 
         <TabsContent value="personal" className="space-y-4">
           <SedePills />
           <div className="flex justify-end">
-            <Button size="sm">
+            <Button size="sm" onClick={() => { setEditPersona(null); setFormOpen(true) }}>
               <Plus className="h-4 w-4 mr-1" /> Agregar persona
             </Button>
           </div>
-          <PersonalTable personas={personas} cargos={cargos} sedes={sedes} />
+          <PersonalTable
+            personas={personas}
+            cargos={cargos}
+            sedes={sedes}
+            onView={setSheetPersona}
+          />
         </TabsContent>
 
-        <TabsContent value="suficiencia" className="space-y-2">
-          <Card>
-            <CardContent className="pt-6 text-sm text-muted-foreground">
-              Vista de suficiencia de talento humano por cargo y sede. Detalle
-              en próxima iteración.
-            </CardContent>
-          </Card>
+        <TabsContent value="suficiencia">
+          <SuficienciaTab personas={personasAll} cargos={cargos} sedes={sedes} />
         </TabsContent>
 
         <TabsContent value="cronograma" className="space-y-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">
-                Capacitaciones programadas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>NOMBRE</TableHead>
-                    <TableHead>ÁREA</TableHead>
-                    <TableHead>FECHA OBJETIVO</TableHead>
-                    <TableHead>ESTADO</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {CAPACITACIONES_PROGRAMADAS0.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell>{c.nombre}</TableCell>
-                      <TableCell>{c.area}</TableCell>
-                      <TableCell>
-                        {new Date(c.fechaObjetivo).toLocaleDateString('es-CO')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {c.estado}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <CronogramaTab />
         </TabsContent>
       </Tabs>
+
+      <PersonaDetalleSheet
+        persona={sheetPersona}
+        cargos={cargos}
+        sedes={sedes}
+        onOpenChange={(o) => !o && setSheetPersona(null)}
+        onEdit={(p) => {
+          setSheetPersona(null)
+          setEditPersona(p)
+          setFormOpen(true)
+        }}
+      />
+
+      <PersonaFormDialog
+        key={editPersona ? editPersona._id : 'new'}
+        open={formOpen}
+        onOpenChange={(o) => { if (!o) { setFormOpen(false); setEditPersona(null) } }}
+        persona={editPersona}
+        cargos={cargos}
+        sedes={sedes}
+      />
     </div>
   )
 }
+
+// ─── Tabla principal ───────────────────────────────────────────────────────────
 
 function PersonalTable({
   personas,
   cargos,
   sedes,
+  onView,
 }: {
   personas: PersonaSGC[]
-  cargos: ReturnType<typeof useCargos>
+  cargos: CargoSGC[]
   sedes: ReturnType<typeof useSedes>
+  onView: (p: PersonaSGC) => void
 }) {
-  const [open, setOpen] = useState<PersonaSGC | null>(null)
-
   return (
-    <>
-      <Card>
-        <CardContent className="pt-4 p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>NOMBRE</TableHead>
-                <TableHead>CARGO</TableHead>
-                <TableHead>ÁREA</TableHead>
-                <TableHead>SEDE</TableHead>
-                <TableHead>COMPLETITUD</TableHead>
-                <TableHead>PENDIENTES</TableHead>
-                <TableHead>ESTADO</TableHead>
-                <TableHead className="text-right">ACCIÓN</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {personas.map((p) => {
-                const cargo = cargos.find((c) => c.id === p.cargo)
-                const sede = sedes.find((s) => s.codigo === p.sede)
-                const pct = completitudPersona(p)
-                const pend = pendientesValidacion(p)
-                const estado = estadoCompletitud(p)
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.nombre}</TableCell>
-                    <TableCell>{cargo?.nombre ?? p.cargo}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {cargo?.area}
-                    </TableCell>
-                    <TableCell>{sede?.ciudad ?? p.sede}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{pct}%</Badge>
-                    </TableCell>
-                    <TableCell>{pend > 0 ? pend : '—'}</TableCell>
-                    <TableCell>
-                      <EstadoBadge estado={estado} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setOpen(p)}
-                      >
-                        Ver <ArrowRight className="h-3 w-3 ml-1" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-              {personas.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center text-muted-foreground py-8"
-                  >
-                    Sin personas en esta sede
+    <Card>
+      <CardContent className="pt-4 p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>NOMBRE</TableHead>
+              <TableHead>CARGO</TableHead>
+              <TableHead>ÁREA</TableHead>
+              <TableHead>SEDE</TableHead>
+              <TableHead>COMPLETITUD</TableHead>
+              <TableHead>PENDIENTES</TableHead>
+              <TableHead>ESTADO</TableHead>
+              <TableHead className="text-right">ACCIÓN</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {personas.map((p) => {
+              const cargo = cargos.find((c) => c.id === p.cargo)
+              const sede = sedes.find((s) => s.codigo === p.sede)
+              const pct = completitudPersona(p)
+              const pend = pendientesValidacion(p)
+              const estado = estadoCompletitud(p)
+              return (
+                <TableRow key={p._id}>
+                  <TableCell className="font-medium">{p.nombre}</TableCell>
+                  <TableCell>{cargo?.nombre ?? p.cargo}</TableCell>
+                  <TableCell className="text-muted-foreground">{cargo?.area ?? '—'}</TableCell>
+                  <TableCell>{sede?.ciudad ?? p.sede}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{pct}%</Badge>
+                  </TableCell>
+                  <TableCell>{pend > 0 ? pend : '—'}</TableCell>
+                  <TableCell>
+                    <EstadoBadge estado={estado} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => onView(p)}>
+                      Ver <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <PersonaDetalleSheet
-        persona={open}
-        onOpenChange={(o) => !o && setOpen(null)}
-      />
-    </>
+              )
+            })}
+            {personas.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  Sin personas en esta sede
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }
 
-function EstadoBadge({
-  estado,
+// ─── Detalle sheet ─────────────────────────────────────────────────────────────
+
+function PersonaDetalleSheet({
+  persona,
+  cargos,
+  sedes,
+  onOpenChange,
+  onEdit,
 }: {
-  estado: ReturnType<typeof estadoCompletitud>
+  persona: PersonaSGC | null
+  cargos: CargoSGC[]
+  sedes: ReturnType<typeof useSedes>
+  onOpenChange: (o: boolean) => void
+  onEdit: (p: PersonaSGC) => void
 }) {
+  const removePersona = useRemovePersona()
+  const updatePersona = useUpdatePersona()
+  const [editReqs, setEditReqs] = useState(false)
+  const [draft, setDraft] = useState<RequisitoEstado[]>([])
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  if (!persona) return null
+
+  const cargo = cargos.find((c) => c.id === persona.cargo)
+  const sede = sedes.find((s) => s.codigo === persona.sede)
+  const resolved = resolveRequisitos(persona)
+
+  function startEditReqs() {
+    const defs = getRequisitosDefsByCargo(persona!.cargo)
+    const byId = new Map(persona!.requisitos.map((r) => [r.defId, r]))
+    setDraft(
+      defs.map((def) => ({
+        defId: def.id,
+        estado: (byId.get(def.id)?.estado ?? (def.critico ? 'CRITICO' : 'SIN_CARGAR')) as EstadoRequisito,
+        fechaVigencia: byId.get(def.id)?.fechaVigencia ?? undefined,
+        observacion: byId.get(def.id)?.observacion ?? undefined,
+      }))
+    )
+    setEditReqs(true)
+  }
+
+  function cancelEditReqs() {
+    setEditReqs(false)
+    setDraft([])
+  }
+
+  async function saveReqs() {
+    setSaving(true)
+    const cleanDraft = draft.map((r) => ({
+      ...r,
+      fechaVigencia: r.fechaVigencia ?? undefined,
+    }))
+    try {
+      await updatePersona({ id: persona!._id, requisitos: cleanDraft })
+      setEditReqs(false)
+      setDraft([])
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function updateDraftItem(defId: string, patch: Partial<RequisitoEstado>) {
+    setDraft((prev) => prev.map((r) => (r.defId === defId ? { ...r, ...patch } : r)))
+  }
+
+  async function handleDelete() {
+    await removePersona({ id: persona!._id })
+    setConfirmDelete(false)
+    onOpenChange(false)
+  }
+
+  const defs = getRequisitosDefsByCargo(persona.cargo)
+
+  return (
+    <Sheet open={!!persona} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-xl flex flex-col gap-0 p-0">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <SheetTitle>{persona.nombre}</SheetTitle>
+              <SheetDescription className="mt-0.5">
+                {cargo?.nombre ?? persona.cargo} · {sede?.ciudad ?? persona.sede}
+              </SheetDescription>
+            </div>
+            <div className="flex gap-1 shrink-0">
+              <Button variant="ghost" size="icon" onClick={() => onEdit(persona)}>
+                <Edit2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          {confirmDelete && (
+            <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              <p className="font-medium text-destructive mb-2">¿Eliminar esta persona?</p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="destructive" onClick={handleDelete}>
+                  Confirmar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetHeader>
+
+        <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
+          {/* Info rápida */}
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">Cédula</span>
+              <p className="font-medium">{persona.cedula}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Fecha ingreso</span>
+              <p className="font-medium">
+                {persona.fechaIngreso
+                  ? new Date(persona.fechaIngreso).toLocaleDateString('es-CO')
+                  : '—'}
+              </p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Estado</span>
+              <p className="font-medium capitalize">{persona.estado}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Completitud</span>
+              <p className="font-medium">{completitudPersona(persona)}%</p>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold">Requisitos normativos</h4>
+              {!editReqs && defs.length > 0 && (
+                <Button size="sm" variant="outline" onClick={startEditReqs}>
+                  <Edit2 className="h-3 w-3 mr-1" /> Editar
+                </Button>
+              )}
+            </div>
+
+            {!editReqs ? (
+              <div className="space-y-2">
+                {resolved.map((i) => (
+                  <div
+                    key={i.def.id}
+                    className="flex items-start gap-3 rounded-lg border border-border bg-card/30 px-3 py-2"
+                  >
+                    <ReqEstadoBadge estado={i.estado} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{i.def.nombre}</div>
+                      <div className="text-[0.65rem] text-muted-foreground">
+                        {i.def.norma}
+                        {i.fechaVigencia
+                          ? ` · Vence ${new Date(i.fechaVigencia).toLocaleDateString('es-CO')}`
+                          : ''}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {resolved.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Sin requisitos definidos para este cargo
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {draft.map((item) => {
+                  const def = defs.find((d) => d.id === item.defId)
+                  if (!def) return null
+                  return (
+                    <div
+                      key={item.defId}
+                      className="rounded-lg border border-border bg-card/30 px-3 py-2 space-y-2"
+                    >
+                      <div className="text-sm font-medium">{def.nombre}</div>
+                      <div className="text-[0.65rem] text-muted-foreground mb-1">{def.norma}</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={item.estado}
+                          onValueChange={(v) =>
+                            updateDraftItem(item.defId, { estado: v as EstadoRequisito })
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="VIGENTE">Vigente</SelectItem>
+                            <SelectItem value="POR_VALIDAR">Por validar</SelectItem>
+                            <SelectItem value="SIN_CARGAR">Sin cargar</SelectItem>
+                            <SelectItem value="VENCIDO">Vencido</SelectItem>
+                            <SelectItem value="CRITICO">Crítico</SelectItem>
+                            <SelectItem value="NO_APLICA">No aplica</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="date"
+                          className="h-8 text-xs"
+                          value={item.fechaVigencia ?? ''}
+                          onChange={(e) =>
+                            updateDraftItem(item.defId, {
+                              fechaVigencia: e.target.value || undefined,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+                <div className="flex gap-2 pt-2">
+                  <Button size="sm" onClick={saveReqs} disabled={saving}>
+                    {saving ? 'Guardando…' : 'Guardar cambios'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditReqs}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// ─── Form dialog (create / edit) ──────────────────────────────────────────────
+
+type FormState = {
+  nombre: string
+  cedula: string
+  cargoId: string
+  sedeId: string
+  fechaIngreso: string
+  estado: 'activo' | 'inactivo' | 'vacaciones' | 'licencia'
+}
+
+function PersonaFormDialog({
+  open,
+  onOpenChange,
+  persona,
+  cargos,
+  sedes,
+}: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  persona: PersonaSGC | null
+  cargos: CargoSGC[]
+  sedes: ReturnType<typeof useSedes>
+}) {
+  const orgId = useOrgId()
+  const createPersona = useCreatePersona()
+  const updatePersona = useUpdatePersona()
+
+  const [form, setForm] = useState<FormState>(() =>
+    persona
+      ? {
+          nombre: persona.nombre,
+          cedula: persona.cedula,
+          cargoId: persona.cargoId as string,
+          sedeId: persona.sedeId as string,
+          fechaIngreso: persona.fechaIngreso,
+          estado: persona.estado,
+        }
+      : { nombre: '', cedula: '', cargoId: '', sedeId: '', fechaIngreso: '', estado: 'activo' }
+  )
+  const [saving, setSaving] = useState(false)
+
+  const set = (k: keyof FormState) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
+
+  const valid = form.nombre.trim() && form.cedula.trim() && form.cargoId && form.sedeId && form.fechaIngreso
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!valid) return
+    const cargo = cargos.find((c) => c._id === form.cargoId)
+    const sede = sedes.find((s) => s._id === form.sedeId)
+    if (!cargo || !sede) return
+    setSaving(true)
+    try {
+      if (persona) {
+        await updatePersona({
+          id: persona._id,
+          nombre: form.nombre,
+          cedula: form.cedula,
+          cargoId: form.cargoId as any,
+          cargoCodigo: cargo.codigo,
+          sedeId: form.sedeId as any,
+          sedeCodigo: sede.codigo,
+          fechaIngreso: form.fechaIngreso,
+          estado: form.estado,
+        })
+      } else {
+        await createPersona({
+          orgId,
+          nombre: form.nombre,
+          cedula: form.cedula,
+          cargoId: form.cargoId as any,
+          cargoCodigo: cargo.codigo,
+          sedeId: form.sedeId as any,
+          sedeCodigo: sede.codigo,
+          fechaIngreso: form.fechaIngreso,
+          estado: form.estado,
+        })
+      }
+      onOpenChange(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{persona ? 'Editar persona' : 'Agregar persona'}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="p-nombre">Nombre completo</Label>
+              <Input
+                id="p-nombre"
+                value={form.nombre}
+                onChange={(e) => set('nombre')(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="p-cedula">Cédula</Label>
+              <Input
+                id="p-cedula"
+                value={form.cedula}
+                onChange={(e) => set('cedula')(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="p-estado">Estado</Label>
+              <Select value={form.estado} onValueChange={set('estado')}>
+                <SelectTrigger id="p-estado">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="activo">Activo</SelectItem>
+                  <SelectItem value="inactivo">Inactivo</SelectItem>
+                  <SelectItem value="vacaciones">Vacaciones</SelectItem>
+                  <SelectItem value="licencia">Licencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="p-cargo">Cargo</Label>
+              <Select value={form.cargoId} onValueChange={set('cargoId')}>
+                <SelectTrigger id="p-cargo">
+                  <SelectValue placeholder="Seleccionar cargo…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cargos.map((c) => (
+                    <SelectItem key={c._id} value={c._id}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="p-sede">Sede</Label>
+              <Select value={form.sedeId} onValueChange={set('sedeId')}>
+                <SelectTrigger id="p-sede">
+                  <SelectValue placeholder="Seleccionar sede…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sedes
+                    .filter((s) => s.activa)
+                    .map((s) => (
+                      <SelectItem key={s._id} value={s._id}>
+                        {s.nombre}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="p-fecha">Fecha de ingreso</Label>
+              <Input
+                id="p-fecha"
+                type="date"
+                value={form.fechaIngreso}
+                onChange={(e) => set('fechaIngreso')(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving || !valid}>
+              {saving ? 'Guardando…' : persona ? 'Guardar cambios' : 'Agregar'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Suficiencia tab ───────────────────────────────────────────────────────────
+
+function SuficienciaTab({
+  personas,
+  cargos,
+  sedes,
+}: {
+  personas: PersonaSGC[]
+  cargos: CargoSGC[]
+  sedes: ReturnType<typeof useSedes>
+}) {
+  type Row = {
+    cargo: CargoSGC
+    sede: ReturnType<typeof useSedes>[number]
+    activos: number
+    ausentes: number
+    total: number
+  }
+
+  const rows: Row[] = []
+  for (const cargo of cargos) {
+    for (const sede of sedes.filter((s) => s.activa)) {
+      const group = personas.filter((p) => p.cargo === cargo.id && p.sede === sede.codigo)
+      if (group.length === 0) continue
+      const activos = group.filter((p) => p.estado === 'activo').length
+      const ausentes = group.filter((p) => p.estado === 'vacaciones' || p.estado === 'licencia').length
+      rows.push({ cargo, sede, activos, ausentes, total: group.length })
+    }
+  }
+
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-sm text-muted-foreground text-center py-10">
+          Sin personal registrado para mostrar suficiencia.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Dotación actual por cargo y sede</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>CARGO</TableHead>
+              <TableHead>TIPO</TableHead>
+              <TableHead>SEDE</TableHead>
+              <TableHead className="text-center">ACTIVOS</TableHead>
+              <TableHead className="text-center">VAC / LIC</TableHead>
+              <TableHead className="text-center">TOTAL</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={`${r.cargo._id}-${r.sede._id}`}>
+                <TableCell className="font-medium">{r.cargo.nombre}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="capitalize text-[0.65rem]">
+                    {r.cargo.tipo ?? '—'}
+                  </Badge>
+                </TableCell>
+                <TableCell>{r.sede.ciudad}</TableCell>
+                <TableCell className="text-center">
+                  <span className={r.activos === 0 ? 'text-red-400 font-semibold' : ''}>
+                    {r.activos}
+                  </span>
+                </TableCell>
+                <TableCell className="text-center text-muted-foreground">{r.ausentes}</TableCell>
+                <TableCell className="text-center font-medium">{r.total}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Cronograma tab ────────────────────────────────────────────────────────────
+
+function CronogramaTab() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Capacitaciones programadas</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>NOMBRE</TableHead>
+              <TableHead>ÁREA</TableHead>
+              <TableHead>FECHA OBJETIVO</TableHead>
+              <TableHead>ESTADO</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {CAPACITACIONES_PROGRAMADAS0.map((c) => (
+              <TableRow key={c.id}>
+                <TableCell>{c.nombre}</TableCell>
+                <TableCell>{c.area}</TableCell>
+                <TableCell>
+                  {new Date(c.fechaObjetivo).toLocaleDateString('es-CO')}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="capitalize">
+                    {c.estado}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Badges ───────────────────────────────────────────────────────────────────
+
+function EstadoBadge({ estado }: { estado: ReturnType<typeof estadoCompletitud> }) {
   const styles =
     estado === 'Crítico'
       ? 'bg-red-400/20 text-red-400 border-red-400/40'
@@ -254,61 +786,8 @@ function EstadoBadge({
   )
 }
 
-function PersonaDetalleSheet({
-  persona,
-  onOpenChange,
-}: {
-  persona: PersonaSGC | null
-  onOpenChange: (open: boolean) => void
-}) {
-  if (!persona) return null
-  const items = resolveRequisitos(persona)
-  return (
-    <Sheet open={!!persona} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle>{persona.nombre}</SheetTitle>
-          <SheetDescription>
-            Cargo {persona.cargo} · Sede {persona.sede}
-          </SheetDescription>
-        </SheetHeader>
-        <div className="mt-4 space-y-2 overflow-auto max-h-[calc(100vh-12rem)] pr-2">
-          {items.map((i) => (
-            <div
-              key={i.def.id}
-              className="flex items-start gap-3 rounded-lg border border-border bg-card/30 px-3 py-2"
-            >
-              <ReqEstadoBadge estado={i.estado} />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-foreground truncate">
-                  {i.def.nombre}
-                </div>
-                <div className="text-[0.65rem] text-muted-foreground">
-                  {i.def.norma}
-                  {i.fechaVigencia
-                    ? ` · Vence ${new Date(i.fechaVigencia).toLocaleDateString('es-CO')}`
-                    : ''}
-                </div>
-              </div>
-            </div>
-          ))}
-          {items.length === 0 && (
-            <div className="text-sm text-muted-foreground py-8 text-center">
-              Sin requisitos definidos para este cargo
-            </div>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  )
-}
-
-function ReqEstadoBadge({
-  estado,
-}: {
-  estado: ReturnType<typeof resolveRequisitos>[number]['estado']
-}) {
-  const styles: Record<typeof estado, string> = {
+function ReqEstadoBadge({ estado }: { estado: EstadoRequisito }) {
+  const styles: Record<EstadoRequisito, string> = {
     VIGENTE: 'bg-emerald-400/20 text-emerald-400 border-emerald-400/40',
     POR_VALIDAR: 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40',
     SIN_CARGAR: 'bg-muted text-muted-foreground',
@@ -317,7 +796,7 @@ function ReqEstadoBadge({
     NO_APLICA: 'bg-muted text-muted-foreground',
   }
   return (
-    <Badge variant="outline" className={`${styles[estado]} text-[0.65rem]`}>
+    <Badge variant="outline" className={`${styles[estado]} text-[0.65rem] shrink-0`}>
       {estado.replace('_', ' ')}
     </Badge>
   )
