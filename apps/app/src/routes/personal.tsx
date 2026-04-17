@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowRight, Edit2, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowRight, Edit2, Paperclip, Plus, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { KpiMeta } from '#/components/kpi-meta'
 import { SedePills } from '#/components/sede-pills'
 import { Badge } from '#/components/ui/badge'
@@ -56,6 +56,7 @@ import {
 import type { CargoSGC, PersonaSGC } from '#/lib/domain/personal'
 import type { EstadoRequisito, RequisitoEstado } from '#/lib/types'
 import { useOrgId } from '#/lib/org-context'
+import { useUploadThing } from '#/lib/uploadthing-client'
 
 export const Route = createFileRoute('/personal')({
   component: PersonalPage,
@@ -74,11 +75,16 @@ function PersonalPage() {
   const [editPersona, setEditPersona] = useState<PersonaSGC | null>(null)
 
   const totalCaps = CAPACITACIONES_PROGRAMADAS0.length
-  const capsEjec = CAPACITACIONES_PROGRAMADAS0.filter((c) => c.estado === 'ejecutada').length
-  const pctCapsEjec = totalCaps > 0 ? Math.round((capsEjec / totalCaps) * 1000) / 10 : 0
+  const capsEjec = CAPACITACIONES_PROGRAMADAS0.filter(
+    (c) => c.estado === 'ejecutada'
+  ).length
+  const pctCapsEjec =
+    totalCaps > 0 ? Math.round((capsEjec / totalCaps) * 1000) / 10 : 0
   const completas = personasAll.filter((p) => completitudPersona(p) === 100)
   const pctDocCompleta =
-    personasAll.length > 0 ? Math.round((completas.length / personasAll.length) * 1000) / 10 : 0
+    personasAll.length > 0
+      ? Math.round((completas.length / personasAll.length) * 1000) / 10
+      : 0
 
   return (
     <div className="space-y-6">
@@ -107,13 +113,21 @@ function PersonalPage() {
         <TabsList>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="suficiencia">Suficiencia TH</TabsTrigger>
-          <TabsTrigger value="cronograma">Cronograma de capacitaciones</TabsTrigger>
+          <TabsTrigger value="cronograma">
+            Cronograma de capacitaciones
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="personal" className="space-y-4">
           <SedePills />
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setEditPersona(null); setFormOpen(true) }}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditPersona(null)
+                setFormOpen(true)
+              }}
+            >
               <Plus className="h-4 w-4 mr-1" /> Agregar persona
             </Button>
           </div>
@@ -126,7 +140,11 @@ function PersonalPage() {
         </TabsContent>
 
         <TabsContent value="suficiencia">
-          <SuficienciaTab personas={personasAll} cargos={cargos} sedes={sedes} />
+          <SuficienciaTab
+            personas={personasAll}
+            cargos={cargos}
+            sedes={sedes}
+          />
         </TabsContent>
 
         <TabsContent value="cronograma" className="space-y-2">
@@ -149,7 +167,12 @@ function PersonalPage() {
       <PersonaFormDialog
         key={editPersona ? editPersona._id : 'new'}
         open={formOpen}
-        onOpenChange={(o) => { if (!o) { setFormOpen(false); setEditPersona(null) } }}
+        onOpenChange={(o) => {
+          if (!o) {
+            setFormOpen(false)
+            setEditPersona(null)
+          }
+        }}
         persona={editPersona}
         cargos={cargos}
         sedes={sedes}
@@ -198,7 +221,9 @@ function PersonalTable({
                 <TableRow key={p._id}>
                   <TableCell className="font-medium">{p.nombre}</TableCell>
                   <TableCell>{cargo?.nombre ?? p.cargo}</TableCell>
-                  <TableCell className="text-muted-foreground">{cargo?.area ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {cargo?.area ?? '—'}
+                  </TableCell>
                   <TableCell>{sede?.ciudad ?? p.sede}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{pct}%</Badge>
@@ -217,7 +242,10 @@ function PersonalTable({
             })}
             {personas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell
+                  colSpan={8}
+                  className="text-center text-muted-foreground py-8"
+                >
                   Sin personas en esta sede
                 </TableCell>
               </TableRow>
@@ -263,7 +291,8 @@ function PersonaDetalleSheet({
     setDraft(
       defs.map((def) => ({
         defId: def.id,
-        estado: (byId.get(def.id)?.estado ?? (def.critico ? 'CRITICO' : 'SIN_CARGAR')) as EstadoRequisito,
+        estado: (byId.get(def.id)?.estado ??
+          (def.critico ? 'CRITICO' : 'SIN_CARGAR')),
         fechaVigencia: byId.get(def.id)?.fechaVigencia ?? undefined,
         observacion: byId.get(def.id)?.observacion ?? undefined,
       }))
@@ -292,7 +321,9 @@ function PersonaDetalleSheet({
   }
 
   function updateDraftItem(defId: string, patch: Partial<RequisitoEstado>) {
-    setDraft((prev) => prev.map((r) => (r.defId === defId ? { ...r, ...patch } : r)))
+    setDraft((prev) =>
+      prev.map((r) => (r.defId === defId ? { ...r, ...patch } : r))
+    )
   }
 
   async function handleDelete() {
@@ -311,11 +342,16 @@ function PersonaDetalleSheet({
             <div>
               <SheetTitle>{persona.nombre}</SheetTitle>
               <SheetDescription className="mt-0.5">
-                {cargo?.nombre ?? persona.cargo} · {sede?.ciudad ?? persona.sede}
+                {cargo?.nombre ?? persona.cargo} ·{' '}
+                {sede?.ciudad ?? persona.sede}
               </SheetDescription>
             </div>
             <div className="flex gap-1 shrink-0">
-              <Button variant="ghost" size="icon" onClick={() => onEdit(persona)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onEdit(persona)}
+              >
                 <Edit2 className="h-4 w-4" />
               </Button>
               <Button
@@ -330,12 +366,18 @@ function PersonaDetalleSheet({
           </div>
           {confirmDelete && (
             <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-              <p className="font-medium text-destructive mb-2">¿Eliminar esta persona?</p>
+              <p className="font-medium text-destructive mb-2">
+                ¿Eliminar esta persona?
+              </p>
               <div className="flex gap-2">
                 <Button size="sm" variant="destructive" onClick={handleDelete}>
                   Confirmar
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmDelete(false)}
+                >
                   Cancelar
                 </Button>
               </div>
@@ -387,7 +429,9 @@ function PersonaDetalleSheet({
                   >
                     <ReqEstadoBadge estado={i.estado} />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{i.def.nombre}</div>
+                      <div className="text-sm font-medium truncate">
+                        {i.def.nombre}
+                      </div>
                       <div className="text-[0.65rem] text-muted-foreground">
                         {i.def.norma}
                         {i.fechaVigencia
@@ -395,6 +439,17 @@ function PersonaDetalleSheet({
                           : ''}
                       </div>
                     </div>
+                    {/* Show link if doc was uploaded */}
+                    {persona.requisitos.find((r) => r.defId === i.def.id)?.archivo && (
+                      <a
+                        href={persona.requisitos.find((r) => r.defId === i.def.id)!.archivo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[0.65rem] text-primary underline shrink-0"
+                      >
+                        Doc
+                      </a>
+                    )}
                   </div>
                 ))}
                 {resolved.length === 0 && (
@@ -409,43 +464,12 @@ function PersonaDetalleSheet({
                   const def = defs.find((d) => d.id === item.defId)
                   if (!def) return null
                   return (
-                    <div
+                    <ReqItemEdit
                       key={item.defId}
-                      className="rounded-lg border border-border bg-card/30 px-3 py-2 space-y-2"
-                    >
-                      <div className="text-sm font-medium">{def.nombre}</div>
-                      <div className="text-[0.65rem] text-muted-foreground mb-1">{def.norma}</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={item.estado}
-                          onValueChange={(v) =>
-                            updateDraftItem(item.defId, { estado: v as EstadoRequisito })
-                          }
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="VIGENTE">Vigente</SelectItem>
-                            <SelectItem value="POR_VALIDAR">Por validar</SelectItem>
-                            <SelectItem value="SIN_CARGAR">Sin cargar</SelectItem>
-                            <SelectItem value="VENCIDO">Vencido</SelectItem>
-                            <SelectItem value="CRITICO">Crítico</SelectItem>
-                            <SelectItem value="NO_APLICA">No aplica</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="date"
-                          className="h-8 text-xs"
-                          value={item.fechaVigencia ?? ''}
-                          onChange={(e) =>
-                            updateDraftItem(item.defId, {
-                              fechaVigencia: e.target.value || undefined,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
+                      item={item}
+                      def={def}
+                      onChange={(patch) => updateDraftItem(item.defId, patch)}
+                    />
                   )
                 })}
                 <div className="flex gap-2 pt-2">
@@ -503,13 +527,26 @@ function PersonaFormDialog({
           fechaIngreso: persona.fechaIngreso,
           estado: persona.estado,
         }
-      : { nombre: '', cedula: '', cargoId: '', sedeId: '', fechaIngreso: '', estado: 'activo' }
+      : {
+          nombre: '',
+          cedula: '',
+          cargoId: '',
+          sedeId: '',
+          fechaIngreso: '',
+          estado: 'activo',
+        }
   )
   const [saving, setSaving] = useState(false)
 
-  const set = (k: keyof FormState) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const set = (k: keyof FormState) => (v: string) =>
+    setForm((f) => ({ ...f, [k]: v }))
 
-  const valid = form.nombre.trim() && form.cedula.trim() && form.cargoId && form.sedeId && form.fechaIngreso
+  const valid =
+    form.nombre.trim() &&
+    form.cedula.trim() &&
+    form.cargoId &&
+    form.sedeId &&
+    form.fechaIngreso
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -554,7 +591,9 @@ function PersonaFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{persona ? 'Editar persona' : 'Agregar persona'}</DialogTitle>
+          <DialogTitle>
+            {persona ? 'Editar persona' : 'Agregar persona'}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-1">
           <div className="grid grid-cols-2 gap-3">
@@ -634,7 +673,11 @@ function PersonaFormDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
             <Button type="submit" disabled={saving || !valid}>
@@ -669,10 +712,14 @@ function SuficienciaTab({
   const rows: Row[] = []
   for (const cargo of cargos) {
     for (const sede of sedes.filter((s) => s.activa)) {
-      const group = personas.filter((p) => p.cargo === cargo.id && p.sede === sede.codigo)
+      const group = personas.filter(
+        (p) => p.cargo === cargo.id && p.sede === sede.codigo
+      )
       if (group.length === 0) continue
       const activos = group.filter((p) => p.estado === 'activo').length
-      const ausentes = group.filter((p) => p.estado === 'vacaciones' || p.estado === 'licencia').length
+      const ausentes = group.filter(
+        (p) => p.estado === 'vacaciones' || p.estado === 'licencia'
+      ).length
       rows.push({ cargo, sede, activos, ausentes, total: group.length })
     }
   }
@@ -690,7 +737,9 @@ function SuficienciaTab({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Dotación actual por cargo y sede</CardTitle>
+        <CardTitle className="text-sm">
+          Dotación actual por cargo y sede
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
@@ -709,18 +758,29 @@ function SuficienciaTab({
               <TableRow key={`${r.cargo._id}-${r.sede._id}`}>
                 <TableCell className="font-medium">{r.cargo.nombre}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="capitalize text-[0.65rem]">
+                  <Badge
+                    variant="outline"
+                    className="capitalize text-[0.65rem]"
+                  >
                     {r.cargo.tipo ?? '—'}
                   </Badge>
                 </TableCell>
                 <TableCell>{r.sede.ciudad}</TableCell>
                 <TableCell className="text-center">
-                  <span className={r.activos === 0 ? 'text-red-400 font-semibold' : ''}>
+                  <span
+                    className={
+                      r.activos === 0 ? 'text-red-400 font-semibold' : ''
+                    }
+                  >
                     {r.activos}
                   </span>
                 </TableCell>
-                <TableCell className="text-center text-muted-foreground">{r.ausentes}</TableCell>
-                <TableCell className="text-center font-medium">{r.total}</TableCell>
+                <TableCell className="text-center text-muted-foreground">
+                  {r.ausentes}
+                </TableCell>
+                <TableCell className="text-center font-medium">
+                  {r.total}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -770,9 +830,115 @@ function CronogramaTab() {
   )
 }
 
+// ─── Req item edit (own component — needs useUploadThing hook) ────────────────
+
+import type { RequisitoDef } from '#/lib/types'
+
+function ReqItemEdit({
+  item,
+  def,
+  onChange,
+}: {
+  item: RequisitoEstado
+  def: RequisitoDef
+  onChange: (patch: Partial<RequisitoEstado>) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const { startUpload, isUploading } = useUploadThing('requisitoPersonal')
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    const res = await startUpload(files)
+    if (res?.[0]?.url) {
+      onChange({
+        archivo: res[0].url,
+        estado: item.estado === 'VIGENTE' ? 'VIGENTE' : 'POR_VALIDAR',
+      })
+    }
+    // reset input so the same file can be re-selected
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card/30 px-3 py-2 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">{def.nombre}</div>
+          <div className="text-[0.65rem] text-muted-foreground">{def.norma}</div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {item.archivo && (
+            <a
+              href={item.archivo}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[0.65rem] text-primary underline"
+            >
+              Ver doc
+            </a>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,image/*"
+            className="hidden"
+            onChange={handleFile}
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant={item.archivo ? 'default' : 'outline'}
+            className="h-7 w-7"
+            disabled={isUploading}
+            onClick={() => fileRef.current?.click()}
+            title="Adjuntar documento"
+          >
+            {isUploading ? (
+              <span className="text-[0.55rem] animate-pulse">…</span>
+            ) : (
+              <Paperclip className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Select
+          value={item.estado}
+          onValueChange={(v) => onChange({ estado: v as EstadoRequisito })}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="VIGENTE">Vigente</SelectItem>
+            <SelectItem value="POR_VALIDAR">Por validar</SelectItem>
+            <SelectItem value="SIN_CARGAR">Sin cargar</SelectItem>
+            <SelectItem value="VENCIDO">Vencido</SelectItem>
+            <SelectItem value="CRITICO">Crítico</SelectItem>
+            <SelectItem value="NO_APLICA">No aplica</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          type="date"
+          className="h-8 text-xs"
+          value={item.fechaVigencia ?? ''}
+          onChange={(e) =>
+            onChange({ fechaVigencia: e.target.value || undefined })
+          }
+        />
+      </div>
+    </div>
+  )
+}
+
 // ─── Badges ───────────────────────────────────────────────────────────────────
 
-function EstadoBadge({ estado }: { estado: ReturnType<typeof estadoCompletitud> }) {
+function EstadoBadge({
+  estado,
+}: {
+  estado: ReturnType<typeof estadoCompletitud>
+}) {
   const styles =
     estado === 'Crítico'
       ? 'bg-red-400/20 text-red-400 border-red-400/40'
@@ -796,7 +962,10 @@ function ReqEstadoBadge({ estado }: { estado: EstadoRequisito }) {
     NO_APLICA: 'bg-muted text-muted-foreground',
   }
   return (
-    <Badge variant="outline" className={`${styles[estado]} text-[0.65rem] shrink-0`}>
+    <Badge
+      variant="outline"
+      className={`${styles[estado]} text-[0.65rem] shrink-0`}
+    >
       {estado.replace('_', ' ')}
     </Badge>
   )
