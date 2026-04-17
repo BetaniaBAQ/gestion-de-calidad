@@ -57,7 +57,11 @@ import {
 import type { CargoSGC, PersonaSGC } from '#/lib/domain/personal'
 import { useOrgId } from '#/lib/org-context'
 import { useUploadThing } from '#/lib/uploadthing-client'
-import type { EstadoRequisito, RequisitoDef, RequisitoEstado } from '#/lib/types'
+import type {
+  EstadoRequisito,
+  RequisitoDef,
+  RequisitoEstado,
+} from '#/lib/types'
 
 export const Route = createFileRoute('/personal')({
   component: PersonalPage,
@@ -77,7 +81,8 @@ function PersonalPage() {
   const [editPersona, setEditPersona] = useState<PersonaSGC | null>(null)
 
   const capsEjec = caps.filter((c) => c.estado === 'ejecutada').length
-  const pctCapsEjec = caps.length > 0 ? Math.round((capsEjec / caps.length) * 1000) / 10 : 0
+  const pctCapsEjec =
+    caps.length > 0 ? Math.round((capsEjec / caps.length) * 1000) / 10 : 0
   const completas = personasAll.filter((p) => completitudPersona(p) === 100)
   const pctDocCompleta =
     personasAll.length > 0
@@ -111,7 +116,9 @@ function PersonalPage() {
         <TabsList>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="suficiencia">Suficiencia TH</TabsTrigger>
-          <TabsTrigger value="cronograma">Cronograma de capacitaciones</TabsTrigger>
+          <TabsTrigger value="cronograma">
+            Cronograma de capacitaciones
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="personal" className="space-y-4">
@@ -127,11 +134,20 @@ function PersonalPage() {
               <Plus className="h-4 w-4 mr-1" /> Agregar persona
             </Button>
           </div>
-          <PersonalTable personas={personas} cargos={cargos} sedes={sedes} onView={setDetallePersona} />
+          <PersonalTable
+            personas={personas}
+            cargos={cargos}
+            sedes={sedes}
+            onView={setDetallePersona}
+          />
         </TabsContent>
 
         <TabsContent value="suficiencia">
-          <SuficienciaTab personas={personasAll} cargos={cargos} sedes={sedes} />
+          <SuficienciaTab
+            personas={personasAll}
+            cargos={cargos}
+            sedes={sedes}
+          />
         </TabsContent>
 
         <TabsContent value="cronograma">
@@ -210,7 +226,9 @@ function PersonalTable({
                 <TableRow key={p._id}>
                   <TableCell className="font-medium">{p.nombre}</TableCell>
                   <TableCell>{cargo?.nombre ?? p.cargo}</TableCell>
-                  <TableCell className="text-muted-foreground">{cargo?.area ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {cargo?.area ?? '—'}
+                  </TableCell>
                   <TableCell>{sede?.ciudad ?? p.sede}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{pct}%</Badge>
@@ -229,7 +247,10 @@ function PersonalTable({
             })}
             {personas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell
+                  colSpan={8}
+                  className="text-center text-muted-foreground py-8"
+                >
                   Sin personas en esta sede
                 </TableCell>
               </TableRow>
@@ -273,7 +294,8 @@ function PersonaDetalleDialog({
     setDraft(
       defs.map((def) => ({
         defId: def.id,
-        estado: (byId.get(def.id)?.estado ?? (def.critico ? 'CRITICO' : 'SIN_CARGAR')) as EstadoRequisito,
+        estado: (byId.get(def.id)?.estado ??
+          (def.critico ? 'CRITICO' : 'SIN_CARGAR')),
         fechaVigencia: byId.get(def.id)?.fechaVigencia ?? undefined,
         observacion: byId.get(def.id)?.observacion ?? undefined,
         fileUrl: byId.get(def.id)?.fileUrl ?? undefined,
@@ -283,7 +305,9 @@ function PersonaDetalleDialog({
   }
 
   function updateDraftItem(defId: string, patch: Partial<RequisitoEstado>) {
-    setDraft((prev) => prev.map((r) => (r.defId === defId ? { ...r, ...patch } : r)))
+    setDraft((prev) =>
+      prev.map((r) => (r.defId === defId ? { ...r, ...patch } : r))
+    )
   }
 
   function cleanDraft(d: RequisitoEstado[]) {
@@ -300,8 +324,13 @@ function PersonaDetalleDialog({
     }
   }
 
-  async function handleAutoSave(defId: string, patch: Partial<RequisitoEstado>) {
-    const merged = draft.map((r) => (r.defId === defId ? { ...r, ...patch } : r))
+  async function handleAutoSave(
+    defId: string,
+    patch: Partial<RequisitoEstado>
+  ) {
+    const merged = draft.map((r) =>
+      r.defId === defId ? { ...r, ...patch } : r
+    )
     await updatePersona({ id: persona._id, requisitos: cleanDraft(merged) })
   }
 
@@ -312,17 +341,22 @@ function PersonaDetalleDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl w-full p-0 gap-0 overflow-hidden max-h-[90vh]">
-        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border">
+      <DialogContent className="max-w-5xl w-full p-0 gap-0 flex flex-col overflow-hidden max-h-[90vh]">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
           <div className="flex items-start justify-between gap-4">
             <div>
               <DialogTitle className="text-lg">{persona.nombre}</DialogTitle>
               <DialogDescription className="mt-0.5">
-                {cargo?.nombre ?? persona.cargo} · {sede?.ciudad ?? persona.sede}
+                {cargo?.nombre ?? persona.cargo} ·{' '}
+                {sede?.ciudad ?? persona.sede}
               </DialogDescription>
             </div>
             <div className="flex gap-1 shrink-0">
-              <Button variant="outline" size="sm" onClick={() => onEdit(persona)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEdit(persona)}
+              >
                 <Edit2 className="h-3.5 w-3.5 mr-1" /> Editar
               </Button>
               <Button
@@ -337,12 +371,18 @@ function PersonaDetalleDialog({
           </div>
           {confirmDelete && (
             <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-              <p className="font-medium text-destructive mb-2">¿Eliminar esta persona?</p>
+              <p className="font-medium text-destructive mb-2">
+                ¿Eliminar esta persona?
+              </p>
               <div className="flex gap-2">
                 <Button size="sm" variant="destructive" onClick={handleDelete}>
                   Confirmar
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmDelete(false)}
+                >
                   Cancelar
                 </Button>
               </div>
@@ -350,7 +390,7 @@ function PersonaDetalleDialog({
           )}
         </DialogHeader>
 
-        <div className="grid grid-cols-[220px_1fr] flex-1 overflow-hidden">
+        <div className="grid grid-cols-[220px_1fr] flex-1 min-h-0 overflow-hidden">
           {/* columna izquierda: datos */}
           <div className="border-r border-border px-5 py-5 space-y-4 overflow-auto">
             <div className="space-y-3 text-sm">
@@ -363,8 +403,14 @@ function PersonaDetalleDialog({
                     : '—'
                 }
               />
-              <InfoRow label="Estado" value={<span className="capitalize">{persona.estado}</span>} />
-              <InfoRow label="Completitud" value={`${completitudPersona(persona)}%`} />
+              <InfoRow
+                label="Estado"
+                value={<span className="capitalize">{persona.estado}</span>}
+              />
+              <InfoRow
+                label="Completitud"
+                value={`${completitudPersona(persona)}%`}
+              />
               {cargo?.area && <InfoRow label="Área" value={cargo.area} />}
             </div>
           </div>
@@ -390,7 +436,9 @@ function PersonaDetalleDialog({
                     >
                       <ReqEstadoBadge estado={i.estado} />
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium truncate">{i.def.nombre}</div>
+                        <div className="text-sm font-medium truncate">
+                          {i.def.nombre}
+                        </div>
                         <div className="text-[0.65rem] text-muted-foreground">
                           {i.def.norma}
                           {i.fechaVigencia
@@ -398,9 +446,14 @@ function PersonaDetalleDialog({
                             : ''}
                         </div>
                       </div>
-                      {persona.requisitos.find((r) => r.defId === i.def.id)?.fileUrl && (
+                      {persona.requisitos.find((r) => r.defId === i.def.id)
+                        ?.fileUrl && (
                         <a
-                          href={persona.requisitos.find((r) => r.defId === i.def.id)!.fileUrl}
+                          href={
+                            persona.requisitos.find(
+                              (r) => r.defId === i.def.id
+                            )!.fileUrl
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[0.65rem] text-primary underline shrink-0"
@@ -427,7 +480,9 @@ function PersonaDetalleDialog({
                         item={item}
                         def={def}
                         onChange={(patch) => updateDraftItem(item.defId, patch)}
-                        onAutoSave={(patch) => handleAutoSave(item.defId, patch)}
+                        onAutoSave={(patch) =>
+                          handleAutoSave(item.defId, patch)
+                        }
                       />
                     )
                   })}
@@ -498,7 +553,9 @@ function ReqItemEdit({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-medium">{def.nombre}</div>
-          <div className="text-[0.65rem] text-muted-foreground">{def.norma}</div>
+          <div className="text-[0.65rem] text-muted-foreground">
+            {def.norma}
+          </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {item.fileUrl && (
@@ -511,7 +568,13 @@ function ReqItemEdit({
               Ver doc
             </a>
           )}
-          <input ref={fileRef} type="file" accept=".pdf,image/*" className="hidden" onChange={handleFile} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,image/*"
+            className="hidden"
+            onChange={handleFile}
+          />
           <Button
             type="button"
             size="icon"
@@ -550,7 +613,9 @@ function ReqItemEdit({
           type="date"
           className="h-8 text-xs"
           value={item.fechaVigencia ?? ''}
-          onChange={(e) => onChange({ fechaVigencia: e.target.value || undefined })}
+          onChange={(e) =>
+            onChange({ fechaVigencia: e.target.value || undefined })
+          }
         />
       </div>
     </div>
@@ -595,12 +660,25 @@ function PersonaFormDialog({
           fechaIngreso: persona.fechaIngreso,
           estado: persona.estado,
         }
-      : { nombre: '', cedula: '', cargoId: '', sedeId: '', fechaIngreso: '', estado: 'activo' }
+      : {
+          nombre: '',
+          cedula: '',
+          cargoId: '',
+          sedeId: '',
+          fechaIngreso: '',
+          estado: 'activo',
+        }
   )
   const [saving, setSaving] = useState(false)
 
-  const set = (k: keyof PersonaForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
-  const valid = form.nombre.trim() && form.cedula.trim() && form.cargoId && form.sedeId && form.fechaIngreso
+  const set = (k: keyof PersonaForm) => (v: string) =>
+    setForm((f) => ({ ...f, [k]: v }))
+  const valid =
+    form.nombre.trim() &&
+    form.cedula.trim() &&
+    form.cargoId &&
+    form.sedeId &&
+    form.fechaIngreso
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -645,17 +723,29 @@ function PersonaFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{persona ? 'Editar persona' : 'Agregar persona'}</DialogTitle>
+          <DialogTitle>
+            {persona ? 'Editar persona' : 'Agregar persona'}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1">
               <Label htmlFor="p-nombre">Nombre completo</Label>
-              <Input id="p-nombre" value={form.nombre} onChange={(e) => set('nombre')(e.target.value)} required />
+              <Input
+                id="p-nombre"
+                value={form.nombre}
+                onChange={(e) => set('nombre')(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="p-cedula">Cédula</Label>
-              <Input id="p-cedula" value={form.cedula} onChange={(e) => set('cedula')(e.target.value)} required />
+              <Input
+                id="p-cedula"
+                value={form.cedula}
+                onChange={(e) => set('cedula')(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="p-estado">Estado</Label>
@@ -705,11 +795,21 @@ function PersonaFormDialog({
             </div>
             <div className="col-span-2 space-y-1">
               <Label htmlFor="p-fecha">Fecha de ingreso</Label>
-              <Input id="p-fecha" type="date" value={form.fechaIngreso} onChange={(e) => set('fechaIngreso')(e.target.value)} required />
+              <Input
+                id="p-fecha"
+                type="date"
+                value={form.fechaIngreso}
+                onChange={(e) => set('fechaIngreso')(e.target.value)}
+                required
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
             <Button type="submit" disabled={saving || !valid}>
@@ -744,14 +844,18 @@ function SuficienciaTab({
   const rows: Row[] = []
   for (const cargo of cargos) {
     for (const sede of sedes.filter((s) => s.activa)) {
-      const group = personas.filter((p) => p.cargo === cargo.id && p.sede === sede.codigo)
+      const group = personas.filter(
+        (p) => p.cargo === cargo.id && p.sede === sede.codigo
+      )
       if (group.length === 0) continue
       rows.push({
         key: `${cargo._id}-${sede._id}`,
         cargo,
         sede,
         activos: group.filter((p) => p.estado === 'activo').length,
-        ausentes: group.filter((p) => p.estado === 'vacaciones' || p.estado === 'licencia').length,
+        ausentes: group.filter(
+          (p) => p.estado === 'vacaciones' || p.estado === 'licencia'
+        ).length,
         total: group.length,
       })
     }
@@ -770,7 +874,9 @@ function SuficienciaTab({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Dotación actual por cargo y sede</CardTitle>
+        <CardTitle className="text-sm">
+          Dotación actual por cargo y sede
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
@@ -789,16 +895,29 @@ function SuficienciaTab({
               <TableRow key={r.key}>
                 <TableCell className="font-medium">{r.cargo.nombre}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="capitalize text-[0.65rem]">
+                  <Badge
+                    variant="outline"
+                    className="capitalize text-[0.65rem]"
+                  >
                     {r.cargo.tipo ?? '—'}
                   </Badge>
                 </TableCell>
                 <TableCell>{r.sede.ciudad}</TableCell>
                 <TableCell className="text-center">
-                  <span className={r.activos === 0 ? 'text-red-400 font-semibold' : ''}>{r.activos}</span>
+                  <span
+                    className={
+                      r.activos === 0 ? 'text-red-400 font-semibold' : ''
+                    }
+                  >
+                    {r.activos}
+                  </span>
                 </TableCell>
-                <TableCell className="text-center text-muted-foreground">{r.ausentes}</TableCell>
-                <TableCell className="text-center font-medium">{r.total}</TableCell>
+                <TableCell className="text-center text-muted-foreground">
+                  {r.ausentes}
+                </TableCell>
+                <TableCell className="text-center font-medium">
+                  {r.total}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -853,8 +972,12 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
                 <TableRow key={c._id}>
                   <TableCell className="font-medium">{c.nombre}</TableCell>
                   <TableCell>{c.area}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.responsable}</TableCell>
-                  <TableCell>{new Date(c.fechaObjetivo).toLocaleDateString('es-CO')}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {c.responsable}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(c.fechaObjetivo).toLocaleDateString('es-CO')}
+                  </TableCell>
                   <TableCell>
                     <CapEstadoBadge estado={c.estado} />
                   </TableCell>
@@ -885,7 +1008,10 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
               ))}
               {caps.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-muted-foreground py-8"
+                  >
                     Sin capacitaciones programadas
                   </TableCell>
                 </TableRow>
@@ -942,11 +1068,23 @@ function CapacitacionFormDialog({
           estado: cap.estado,
           observaciones: cap.observaciones ?? '',
         }
-      : { nombre: '', area: '', fechaObjetivo: '', responsable: '', estado: 'programada', observaciones: '' }
+      : {
+          nombre: '',
+          area: '',
+          fechaObjetivo: '',
+          responsable: '',
+          estado: 'programada',
+          observaciones: '',
+        }
   )
   const [saving, setSaving] = useState(false)
-  const set = (k: keyof CapForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
-  const valid = form.nombre.trim() && form.area.trim() && form.fechaObjetivo && form.responsable.trim()
+  const set = (k: keyof CapForm) => (v: string) =>
+    setForm((f) => ({ ...f, [k]: v }))
+  const valid =
+    form.nombre.trim() &&
+    form.area.trim() &&
+    form.fechaObjetivo &&
+    form.responsable.trim()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -984,17 +1122,29 @@ function CapacitacionFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{cap ? 'Editar capacitación' : 'Nueva capacitación'}</DialogTitle>
+          <DialogTitle>
+            {cap ? 'Editar capacitación' : 'Nueva capacitación'}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3 pt-1">
           <div className="space-y-1">
             <Label htmlFor="c-nombre">Nombre</Label>
-            <Input id="c-nombre" value={form.nombre} onChange={(e) => set('nombre')(e.target.value)} required />
+            <Input
+              id="c-nombre"
+              value={form.nombre}
+              onChange={(e) => set('nombre')(e.target.value)}
+              required
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="c-area">Área</Label>
-              <Input id="c-area" value={form.area} onChange={(e) => set('area')(e.target.value)} required />
+              <Input
+                id="c-area"
+                value={form.area}
+                onChange={(e) => set('area')(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="c-estado">Estado</Label>
@@ -1011,11 +1161,22 @@ function CapacitacionFormDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="c-fecha">Fecha objetivo</Label>
-              <Input id="c-fecha" type="date" value={form.fechaObjetivo} onChange={(e) => set('fechaObjetivo')(e.target.value)} required />
+              <Input
+                id="c-fecha"
+                type="date"
+                value={form.fechaObjetivo}
+                onChange={(e) => set('fechaObjetivo')(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="c-resp">Responsable</Label>
-              <Input id="c-resp" value={form.responsable} onChange={(e) => set('responsable')(e.target.value)} required />
+              <Input
+                id="c-resp"
+                value={form.responsable}
+                onChange={(e) => set('responsable')(e.target.value)}
+                required
+              />
             </div>
           </div>
           <div className="space-y-1">
@@ -1029,7 +1190,11 @@ function CapacitacionFormDialog({
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
             <Button type="submit" disabled={saving || !valid}>
@@ -1044,7 +1209,11 @@ function CapacitacionFormDialog({
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 
-function EstadoBadge({ estado }: { estado: ReturnType<typeof estadoCompletitud> }) {
+function EstadoBadge({
+  estado,
+}: {
+  estado: ReturnType<typeof estadoCompletitud>
+}) {
   const styles =
     estado === 'Crítico'
       ? 'bg-red-400/20 text-red-400 border-red-400/40'
@@ -1068,7 +1237,10 @@ function ReqEstadoBadge({ estado }: { estado: EstadoRequisito }) {
     NO_APLICA: 'bg-muted text-muted-foreground',
   }
   return (
-    <Badge variant="outline" className={`${styles[estado]} text-[0.65rem] shrink-0`}>
+    <Badge
+      variant="outline"
+      className={`${styles[estado]} text-[0.65rem] shrink-0`}
+    >
       {estado.replace('_', ' ')}
     </Badge>
   )
