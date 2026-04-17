@@ -299,7 +299,7 @@ export interface RequisitoEstado {
   estado: EstadoRequisito
   fechaVigencia?: string | null
   observacion?: string
-  archivo?: string
+  fileUrl?: string
 }
 
 export type HabCategoria = 'rh' | 'infra' | 'dotacion' | 'procesos' | 'reps'

@@ -22,7 +22,7 @@ const REQUISITO = v.object({
   estado: ESTADO_REQ,
   fechaVigencia: v.optional(v.string()),
   observacion: v.optional(v.string()),
-  archivo: v.optional(v.string()),
+  fileUrl: v.optional(v.string()),
 })
 
 export const listByOrg = query({

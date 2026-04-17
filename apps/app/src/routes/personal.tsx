@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -23,13 +24,6 @@ import {
   SelectValue,
 } from '#/components/ui/select'
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '#/components/ui/sheet'
-import {
   Table,
   TableBody,
   TableCell,
@@ -38,8 +32,15 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { CAPACITACIONES_PROGRAMADAS0 } from '#/lib/data'
+import { Textarea } from '#/components/ui/textarea'
 import { useSedes } from '#/lib/domain/config'
+import {
+  useCapacitaciones,
+  useCreateCapacitacion,
+  useRemoveCapacitacion,
+  useUpdateCapacitacion,
+} from '#/lib/domain/capacitaciones'
+import type { CapacitacionSGC } from '#/lib/domain/capacitaciones'
 import {
   completitudPersona,
   estadoCompletitud,
@@ -54,9 +55,9 @@ import {
   useUpdatePersona,
 } from '#/lib/domain/personal'
 import type { CargoSGC, PersonaSGC } from '#/lib/domain/personal'
-import type { EstadoRequisito, RequisitoEstado } from '#/lib/types'
 import { useOrgId } from '#/lib/org-context'
 import { useUploadThing } from '#/lib/uploadthing-client'
+import type { EstadoRequisito, RequisitoDef, RequisitoEstado } from '#/lib/types'
 
 export const Route = createFileRoute('/personal')({
   component: PersonalPage,
@@ -69,17 +70,14 @@ function PersonalPage() {
   const personas = usePersonas()
   const cargos = useCargos()
   const sedes = useSedes()
+  const caps = useCapacitaciones()
 
-  const [sheetPersona, setSheetPersona] = useState<PersonaSGC | null>(null)
+  const [detallePersona, setDetallePersona] = useState<PersonaSGC | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editPersona, setEditPersona] = useState<PersonaSGC | null>(null)
 
-  const totalCaps = CAPACITACIONES_PROGRAMADAS0.length
-  const capsEjec = CAPACITACIONES_PROGRAMADAS0.filter(
-    (c) => c.estado === 'ejecutada'
-  ).length
-  const pctCapsEjec =
-    totalCaps > 0 ? Math.round((capsEjec / totalCaps) * 1000) / 10 : 0
+  const capsEjec = caps.filter((c) => c.estado === 'ejecutada').length
+  const pctCapsEjec = caps.length > 0 ? Math.round((capsEjec / caps.length) * 1000) / 10 : 0
   const completas = personasAll.filter((p) => completitudPersona(p) === 100)
   const pctDocCompleta =
     personasAll.length > 0
@@ -113,9 +111,7 @@ function PersonalPage() {
         <TabsList>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="suficiencia">Suficiencia TH</TabsTrigger>
-          <TabsTrigger value="cronograma">
-            Cronograma de capacitaciones
-          </TabsTrigger>
+          <TabsTrigger value="cronograma">Cronograma de capacitaciones</TabsTrigger>
         </TabsList>
 
         <TabsContent value="personal" className="space-y-4">
@@ -131,38 +127,31 @@ function PersonalPage() {
               <Plus className="h-4 w-4 mr-1" /> Agregar persona
             </Button>
           </div>
-          <PersonalTable
-            personas={personas}
-            cargos={cargos}
-            sedes={sedes}
-            onView={setSheetPersona}
-          />
+          <PersonalTable personas={personas} cargos={cargos} sedes={sedes} onView={setDetallePersona} />
         </TabsContent>
 
         <TabsContent value="suficiencia">
-          <SuficienciaTab
-            personas={personasAll}
-            cargos={cargos}
-            sedes={sedes}
-          />
+          <SuficienciaTab personas={personasAll} cargos={cargos} sedes={sedes} />
         </TabsContent>
 
-        <TabsContent value="cronograma" className="space-y-2">
-          <CronogramaTab />
+        <TabsContent value="cronograma">
+          <CronogramaTab caps={caps} />
         </TabsContent>
       </Tabs>
 
-      <PersonaDetalleSheet
-        persona={sheetPersona}
-        cargos={cargos}
-        sedes={sedes}
-        onOpenChange={(o) => !o && setSheetPersona(null)}
-        onEdit={(p) => {
-          setSheetPersona(null)
-          setEditPersona(p)
-          setFormOpen(true)
-        }}
-      />
+      {detallePersona && (
+        <PersonaDetalleDialog
+          persona={detallePersona}
+          cargos={cargos}
+          sedes={sedes}
+          onClose={() => setDetallePersona(null)}
+          onEdit={(p) => {
+            setDetallePersona(null)
+            setEditPersona(p)
+            setFormOpen(true)
+          }}
+        />
+      )}
 
       <PersonaFormDialog
         key={editPersona ? editPersona._id : 'new'}
@@ -221,9 +210,7 @@ function PersonalTable({
                 <TableRow key={p._id}>
                   <TableCell className="font-medium">{p.nombre}</TableCell>
                   <TableCell>{cargo?.nombre ?? p.cargo}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {cargo?.area ?? '—'}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{cargo?.area ?? '—'}</TableCell>
                   <TableCell>{sede?.ciudad ?? p.sede}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{pct}%</Badge>
@@ -242,10 +229,7 @@ function PersonalTable({
             })}
             {personas.length === 0 && (
               <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="text-center text-muted-foreground py-8"
-                >
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   Sin personas en esta sede
                 </TableCell>
               </TableRow>
@@ -257,19 +241,19 @@ function PersonalTable({
   )
 }
 
-// ─── Detalle sheet ─────────────────────────────────────────────────────────────
+// ─── Detalle dialog (2 columnas) ──────────────────────────────────────────────
 
-function PersonaDetalleSheet({
+function PersonaDetalleDialog({
   persona,
   cargos,
   sedes,
-  onOpenChange,
+  onClose,
   onEdit,
 }: {
-  persona: PersonaSGC | null
+  persona: PersonaSGC
   cargos: CargoSGC[]
   sedes: ReturnType<typeof useSedes>
-  onOpenChange: (o: boolean) => void
+  onClose: () => void
   onEdit: (p: PersonaSGC) => void
 }) {
   const removePersona = useRemovePersona()
@@ -279,139 +263,115 @@ function PersonaDetalleSheet({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  if (!persona) return null
-
   const cargo = cargos.find((c) => c.id === persona.cargo)
   const sede = sedes.find((s) => s.codigo === persona.sede)
   const resolved = resolveRequisitos(persona)
+  const defs = getRequisitosDefsByCargo(persona.cargo)
 
   function startEditReqs() {
-    const defs = getRequisitosDefsByCargo(persona!.cargo)
-    const byId = new Map(persona!.requisitos.map((r) => [r.defId, r]))
+    const byId = new Map(persona.requisitos.map((r) => [r.defId, r]))
     setDraft(
       defs.map((def) => ({
         defId: def.id,
-        estado: (byId.get(def.id)?.estado ??
-          (def.critico ? 'CRITICO' : 'SIN_CARGAR')),
+        estado: (byId.get(def.id)?.estado ?? (def.critico ? 'CRITICO' : 'SIN_CARGAR')) as EstadoRequisito,
         fechaVigencia: byId.get(def.id)?.fechaVigencia ?? undefined,
         observacion: byId.get(def.id)?.observacion ?? undefined,
+        fileUrl: byId.get(def.id)?.fileUrl ?? undefined,
       }))
     )
     setEditReqs(true)
   }
 
-  function cancelEditReqs() {
-    setEditReqs(false)
-    setDraft([])
+  function updateDraftItem(defId: string, patch: Partial<RequisitoEstado>) {
+    setDraft((prev) => prev.map((r) => (r.defId === defId ? { ...r, ...patch } : r)))
+  }
+
+  function cleanDraft(d: RequisitoEstado[]) {
+    return d.map((r) => ({ ...r, fechaVigencia: r.fechaVigencia ?? undefined }))
   }
 
   async function saveReqs() {
     setSaving(true)
-    const cleanDraft = draft.map((r) => ({
-      ...r,
-      fechaVigencia: r.fechaVigencia ?? undefined,
-    }))
     try {
-      await updatePersona({ id: persona!._id, requisitos: cleanDraft })
+      await updatePersona({ id: persona._id, requisitos: cleanDraft(draft) })
       setEditReqs(false)
-      setDraft([])
     } finally {
       setSaving(false)
     }
   }
 
-  function updateDraftItem(defId: string, patch: Partial<RequisitoEstado>) {
-    setDraft((prev) =>
-      prev.map((r) => (r.defId === defId ? { ...r, ...patch } : r))
-    )
+  async function handleAutoSave(defId: string, patch: Partial<RequisitoEstado>) {
+    const merged = draft.map((r) => (r.defId === defId ? { ...r, ...patch } : r))
+    await updatePersona({ id: persona._id, requisitos: cleanDraft(merged) })
   }
 
   async function handleDelete() {
-    await removePersona({ id: persona!._id })
-    setConfirmDelete(false)
-    onOpenChange(false)
+    await removePersona({ id: persona._id })
+    onClose()
   }
 
-  const defs = getRequisitosDefsByCargo(persona.cargo)
-
   return (
-    <Sheet open={!!persona} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl flex flex-col gap-0 p-0">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
-          <div className="flex items-start justify-between gap-2">
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-4xl w-full p-0 gap-0 overflow-hidden max-h-[90vh]">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <SheetTitle>{persona.nombre}</SheetTitle>
-              <SheetDescription className="mt-0.5">
-                {cargo?.nombre ?? persona.cargo} ·{' '}
-                {sede?.ciudad ?? persona.sede}
-              </SheetDescription>
+              <DialogTitle className="text-lg">{persona.nombre}</DialogTitle>
+              <DialogDescription className="mt-0.5">
+                {cargo?.nombre ?? persona.cargo} · {sede?.ciudad ?? persona.sede}
+              </DialogDescription>
             </div>
             <div className="flex gap-1 shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onEdit(persona)}
-              >
-                <Edit2 className="h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={() => onEdit(persona)}>
+                <Edit2 className="h-3.5 w-3.5 mr-1" /> Editar
               </Button>
               <Button
-                variant="ghost"
-                size="icon"
-                className="text-destructive hover:text-destructive"
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive border-destructive/30"
                 onClick={() => setConfirmDelete(true)}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
               </Button>
             </div>
           </div>
           {confirmDelete && (
             <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-              <p className="font-medium text-destructive mb-2">
-                ¿Eliminar esta persona?
-              </p>
+              <p className="font-medium text-destructive mb-2">¿Eliminar esta persona?</p>
               <div className="flex gap-2">
                 <Button size="sm" variant="destructive" onClick={handleDelete}>
                   Confirmar
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setConfirmDelete(false)}
-                >
+                <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)}>
                   Cancelar
                 </Button>
               </div>
             </div>
           )}
-        </SheetHeader>
+        </DialogHeader>
 
-        <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
-          {/* Info rápida */}
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">Cédula</span>
-              <p className="font-medium">{persona.cedula}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Fecha ingreso</span>
-              <p className="font-medium">
-                {persona.fechaIngreso
-                  ? new Date(persona.fechaIngreso).toLocaleDateString('es-CO')
-                  : '—'}
-              </p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Estado</span>
-              <p className="font-medium capitalize">{persona.estado}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Completitud</span>
-              <p className="font-medium">{completitudPersona(persona)}%</p>
+        <div className="grid grid-cols-[220px_1fr] flex-1 overflow-hidden">
+          {/* columna izquierda: datos */}
+          <div className="border-r border-border px-5 py-5 space-y-4 overflow-auto">
+            <div className="space-y-3 text-sm">
+              <InfoRow label="Cédula" value={persona.cedula} />
+              <InfoRow
+                label="Fecha ingreso"
+                value={
+                  persona.fechaIngreso
+                    ? new Date(persona.fechaIngreso).toLocaleDateString('es-CO')
+                    : '—'
+                }
+              />
+              <InfoRow label="Estado" value={<span className="capitalize">{persona.estado}</span>} />
+              <InfoRow label="Completitud" value={`${completitudPersona(persona)}%`} />
+              {cargo?.area && <InfoRow label="Área" value={cargo.area} />}
             </div>
           </div>
 
-          <div className="border-t border-border pt-4">
-            <div className="flex items-center justify-between mb-3">
+          {/* columna derecha: requisitos */}
+          <div className="flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
               <h4 className="text-sm font-semibold">Requisitos normativos</h4>
               {!editReqs && defs.length > 0 && (
                 <Button size="sm" variant="outline" onClick={startEditReqs}>
@@ -420,78 +380,186 @@ function PersonaDetalleSheet({
               )}
             </div>
 
-            {!editReqs ? (
-              <div className="space-y-2">
-                {resolved.map((i) => (
-                  <div
-                    key={i.def.id}
-                    className="flex items-start gap-3 rounded-lg border border-border bg-card/30 px-3 py-2"
-                  >
-                    <ReqEstadoBadge estado={i.estado} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">
-                        {i.def.nombre}
+            <div className="flex-1 overflow-auto px-5 pb-5 space-y-2">
+              {!editReqs ? (
+                <>
+                  {resolved.map((i) => (
+                    <div
+                      key={i.def.id}
+                      className="flex items-start gap-3 rounded-lg border border-border bg-card/30 px-3 py-2"
+                    >
+                      <ReqEstadoBadge estado={i.estado} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate">{i.def.nombre}</div>
+                        <div className="text-[0.65rem] text-muted-foreground">
+                          {i.def.norma}
+                          {i.fechaVigencia
+                            ? ` · Vence ${new Date(i.fechaVigencia).toLocaleDateString('es-CO')}`
+                            : ''}
+                        </div>
                       </div>
-                      <div className="text-[0.65rem] text-muted-foreground">
-                        {i.def.norma}
-                        {i.fechaVigencia
-                          ? ` · Vence ${new Date(i.fechaVigencia).toLocaleDateString('es-CO')}`
-                          : ''}
-                      </div>
+                      {persona.requisitos.find((r) => r.defId === i.def.id)?.fileUrl && (
+                        <a
+                          href={persona.requisitos.find((r) => r.defId === i.def.id)!.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[0.65rem] text-primary underline shrink-0"
+                        >
+                          Doc
+                        </a>
+                      )}
                     </div>
-                    {/* Show link if doc was uploaded */}
-                    {persona.requisitos.find((r) => r.defId === i.def.id)?.archivo && (
-                      <a
-                        href={persona.requisitos.find((r) => r.defId === i.def.id)!.archivo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[0.65rem] text-primary underline shrink-0"
-                      >
-                        Doc
-                      </a>
-                    )}
+                  ))}
+                  {resolved.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-10">
+                      Sin requisitos definidos para este cargo
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  {draft.map((item) => {
+                    const def = defs.find((d) => d.id === item.defId)
+                    if (!def) return null
+                    return (
+                      <ReqItemEdit
+                        key={item.defId}
+                        item={item}
+                        def={def}
+                        onChange={(patch) => updateDraftItem(item.defId, patch)}
+                        onAutoSave={(patch) => handleAutoSave(item.defId, patch)}
+                      />
+                    )
+                  })}
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" onClick={saveReqs} disabled={saving}>
+                      {saving ? 'Guardando…' : 'Guardar cambios'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditReqs(false)}
+                    >
+                      Cancelar
+                    </Button>
                   </div>
-                ))}
-                {resolved.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-6">
-                    Sin requisitos definidos para este cargo
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {draft.map((item) => {
-                  const def = defs.find((d) => d.id === item.defId)
-                  if (!def) return null
-                  return (
-                    <ReqItemEdit
-                      key={item.defId}
-                      item={item}
-                      def={def}
-                      onChange={(patch) => updateDraftItem(item.defId, patch)}
-                    />
-                  )
-                })}
-                <div className="flex gap-2 pt-2">
-                  <Button size="sm" onClick={saveReqs} disabled={saving}>
-                    {saving ? 'Guardando…' : 'Guardar cambios'}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={cancelEditReqs}>
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-// ─── Form dialog (create / edit) ──────────────────────────────────────────────
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <p className="font-medium text-sm mt-0.5">{value}</p>
+    </div>
+  )
+}
 
-type FormState = {
+// ─── Req item edit ─────────────────────────────────────────────────────────────
+
+function ReqItemEdit({
+  item,
+  def,
+  onChange,
+  onAutoSave,
+}: {
+  item: RequisitoEstado
+  def: RequisitoDef
+  onChange: (patch: Partial<RequisitoEstado>) => void
+  onAutoSave: (patch: Partial<RequisitoEstado>) => Promise<void>
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const { startUpload, isUploading } = useUploadThing('requisitoPersonal')
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    const res = await startUpload(files)
+    if (res?.[0]?.url) {
+      const patch: Partial<RequisitoEstado> = {
+        fileUrl: res[0].url,
+        estado: item.estado === 'VIGENTE' ? 'VIGENTE' : 'POR_VALIDAR',
+      }
+      onChange(patch)
+      await onAutoSave(patch)
+    }
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card/30 px-3 py-2 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">{def.nombre}</div>
+          <div className="text-[0.65rem] text-muted-foreground">{def.norma}</div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {item.fileUrl && (
+            <a
+              href={item.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[0.65rem] text-primary underline"
+            >
+              Ver doc
+            </a>
+          )}
+          <input ref={fileRef} type="file" accept=".pdf,image/*" className="hidden" onChange={handleFile} />
+          <Button
+            type="button"
+            size="icon"
+            variant={item.fileUrl ? 'default' : 'outline'}
+            className="h-7 w-7"
+            disabled={isUploading}
+            onClick={() => fileRef.current?.click()}
+            title="Adjuntar documento"
+          >
+            {isUploading ? (
+              <span className="text-[0.55rem] animate-pulse">…</span>
+            ) : (
+              <Paperclip className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Select
+          value={item.estado}
+          onValueChange={(v) => onChange({ estado: v as EstadoRequisito })}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="VIGENTE">Vigente</SelectItem>
+            <SelectItem value="POR_VALIDAR">Por validar</SelectItem>
+            <SelectItem value="SIN_CARGAR">Sin cargar</SelectItem>
+            <SelectItem value="VENCIDO">Vencido</SelectItem>
+            <SelectItem value="CRITICO">Crítico</SelectItem>
+            <SelectItem value="NO_APLICA">No aplica</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          type="date"
+          className="h-8 text-xs"
+          value={item.fechaVigencia ?? ''}
+          onChange={(e) => onChange({ fechaVigencia: e.target.value || undefined })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── Form dialog persona (create / edit) ──────────────────────────────────────
+
+type PersonaForm = {
   nombre: string
   cedula: string
   cargoId: string
@@ -517,7 +585,7 @@ function PersonaFormDialog({
   const createPersona = useCreatePersona()
   const updatePersona = useUpdatePersona()
 
-  const [form, setForm] = useState<FormState>(() =>
+  const [form, setForm] = useState<PersonaForm>(() =>
     persona
       ? {
           nombre: persona.nombre,
@@ -527,26 +595,12 @@ function PersonaFormDialog({
           fechaIngreso: persona.fechaIngreso,
           estado: persona.estado,
         }
-      : {
-          nombre: '',
-          cedula: '',
-          cargoId: '',
-          sedeId: '',
-          fechaIngreso: '',
-          estado: 'activo',
-        }
+      : { nombre: '', cedula: '', cargoId: '', sedeId: '', fechaIngreso: '', estado: 'activo' }
   )
   const [saving, setSaving] = useState(false)
 
-  const set = (k: keyof FormState) => (v: string) =>
-    setForm((f) => ({ ...f, [k]: v }))
-
-  const valid =
-    form.nombre.trim() &&
-    form.cedula.trim() &&
-    form.cargoId &&
-    form.sedeId &&
-    form.fechaIngreso
+  const set = (k: keyof PersonaForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const valid = form.nombre.trim() && form.cedula.trim() && form.cargoId && form.sedeId && form.fechaIngreso
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -591,29 +645,17 @@ function PersonaFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {persona ? 'Editar persona' : 'Agregar persona'}
-          </DialogTitle>
+          <DialogTitle>{persona ? 'Editar persona' : 'Agregar persona'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1">
               <Label htmlFor="p-nombre">Nombre completo</Label>
-              <Input
-                id="p-nombre"
-                value={form.nombre}
-                onChange={(e) => set('nombre')(e.target.value)}
-                required
-              />
+              <Input id="p-nombre" value={form.nombre} onChange={(e) => set('nombre')(e.target.value)} required />
             </div>
             <div className="space-y-1">
               <Label htmlFor="p-cedula">Cédula</Label>
-              <Input
-                id="p-cedula"
-                value={form.cedula}
-                onChange={(e) => set('cedula')(e.target.value)}
-                required
-              />
+              <Input id="p-cedula" value={form.cedula} onChange={(e) => set('cedula')(e.target.value)} required />
             </div>
             <div className="space-y-1">
               <Label htmlFor="p-estado">Estado</Label>
@@ -663,21 +705,11 @@ function PersonaFormDialog({
             </div>
             <div className="col-span-2 space-y-1">
               <Label htmlFor="p-fecha">Fecha de ingreso</Label>
-              <Input
-                id="p-fecha"
-                type="date"
-                value={form.fechaIngreso}
-                onChange={(e) => set('fechaIngreso')(e.target.value)}
-                required
-              />
+              <Input id="p-fecha" type="date" value={form.fechaIngreso} onChange={(e) => set('fechaIngreso')(e.target.value)} required />
             </div>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={saving || !valid}>
@@ -702,25 +734,26 @@ function SuficienciaTab({
   sedes: ReturnType<typeof useSedes>
 }) {
   type Row = {
+    key: string
     cargo: CargoSGC
-    sede: ReturnType<typeof useSedes>[number]
+    sede: (typeof sedes)[number]
     activos: number
     ausentes: number
     total: number
   }
-
   const rows: Row[] = []
   for (const cargo of cargos) {
     for (const sede of sedes.filter((s) => s.activa)) {
-      const group = personas.filter(
-        (p) => p.cargo === cargo.id && p.sede === sede.codigo
-      )
+      const group = personas.filter((p) => p.cargo === cargo.id && p.sede === sede.codigo)
       if (group.length === 0) continue
-      const activos = group.filter((p) => p.estado === 'activo').length
-      const ausentes = group.filter(
-        (p) => p.estado === 'vacaciones' || p.estado === 'licencia'
-      ).length
-      rows.push({ cargo, sede, activos, ausentes, total: group.length })
+      rows.push({
+        key: `${cargo._id}-${sede._id}`,
+        cargo,
+        sede,
+        activos: group.filter((p) => p.estado === 'activo').length,
+        ausentes: group.filter((p) => p.estado === 'vacaciones' || p.estado === 'licencia').length,
+        total: group.length,
+      })
     }
   }
 
@@ -737,9 +770,7 @@ function SuficienciaTab({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">
-          Dotación actual por cargo y sede
-        </CardTitle>
+        <CardTitle className="text-sm">Dotación actual por cargo y sede</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
@@ -755,32 +786,19 @@ function SuficienciaTab({
           </TableHeader>
           <TableBody>
             {rows.map((r) => (
-              <TableRow key={`${r.cargo._id}-${r.sede._id}`}>
+              <TableRow key={r.key}>
                 <TableCell className="font-medium">{r.cargo.nombre}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant="outline"
-                    className="capitalize text-[0.65rem]"
-                  >
+                  <Badge variant="outline" className="capitalize text-[0.65rem]">
                     {r.cargo.tipo ?? '—'}
                   </Badge>
                 </TableCell>
                 <TableCell>{r.sede.ciudad}</TableCell>
                 <TableCell className="text-center">
-                  <span
-                    className={
-                      r.activos === 0 ? 'text-red-400 font-semibold' : ''
-                    }
-                  >
-                    {r.activos}
-                  </span>
+                  <span className={r.activos === 0 ? 'text-red-400 font-semibold' : ''}>{r.activos}</span>
                 </TableCell>
-                <TableCell className="text-center text-muted-foreground">
-                  {r.ausentes}
-                </TableCell>
-                <TableCell className="text-center font-medium">
-                  {r.total}
-                </TableCell>
+                <TableCell className="text-center text-muted-foreground">{r.ausentes}</TableCell>
+                <TableCell className="text-center font-medium">{r.total}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -790,155 +808,243 @@ function SuficienciaTab({
   )
 }
 
-// ─── Cronograma tab ────────────────────────────────────────────────────────────
+// ─── Cronograma tab (CRUD completo) ───────────────────────────────────────────
 
-function CronogramaTab() {
+function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
+  const [formOpen, setFormOpen] = useState(false)
+  const [editCap, setEditCap] = useState<CapacitacionSGC | null>(null)
+  const remove = useRemoveCapacitacion()
+
+  const ejec = caps.filter((c) => c.estado === 'ejecutada').length
+  const pct = caps.length > 0 ? Math.round((ejec / caps.length) * 1000) / 10 : 0
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Capacitaciones programadas</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>NOMBRE</TableHead>
-              <TableHead>ÁREA</TableHead>
-              <TableHead>FECHA OBJETIVO</TableHead>
-              <TableHead>ESTADO</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {CAPACITACIONES_PROGRAMADAS0.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell>{c.nombre}</TableCell>
-                <TableCell>{c.area}</TableCell>
-                <TableCell>
-                  {new Date(c.fechaObjetivo).toLocaleDateString('es-CO')}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="capitalize">
-                    {c.estado}
-                  </Badge>
-                </TableCell>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {ejec}/{caps.length} ejecutadas ({pct}%)
+        </div>
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditCap(null)
+            setFormOpen(true)
+          }}
+        >
+          <Plus className="h-4 w-4 mr-1" /> Nueva capacitación
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>NOMBRE</TableHead>
+                <TableHead>ÁREA</TableHead>
+                <TableHead>RESPONSABLE</TableHead>
+                <TableHead>FECHA OBJETIVO</TableHead>
+                <TableHead>ESTADO</TableHead>
+                <TableHead className="text-right">ACCIÓN</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {caps.map((c) => (
+                <TableRow key={c._id}>
+                  <TableCell className="font-medium">{c.nombre}</TableCell>
+                  <TableCell>{c.area}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.responsable}</TableCell>
+                  <TableCell>{new Date(c.fechaObjetivo).toLocaleDateString('es-CO')}</TableCell>
+                  <TableCell>
+                    <CapEstadoBadge estado={c.estado} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditCap(c)
+                          setFormOpen(true)
+                        }}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => remove({ id: c._id })}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {caps.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    Sin capacitaciones programadas
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <CapacitacionFormDialog
+        key={editCap ? editCap._id : 'new-cap'}
+        open={formOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setFormOpen(false)
+            setEditCap(null)
+          }
+        }}
+        cap={editCap}
+      />
+    </div>
   )
 }
 
-// ─── Req item edit (own component — needs useUploadThing hook) ────────────────
+type CapForm = {
+  nombre: string
+  area: string
+  fechaObjetivo: string
+  responsable: string
+  estado: 'programada' | 'ejecutada' | 'cancelada'
+  observaciones: string
+}
 
-import type { RequisitoDef } from '#/lib/types'
-
-function ReqItemEdit({
-  item,
-  def,
-  onChange,
+function CapacitacionFormDialog({
+  open,
+  onOpenChange,
+  cap,
 }: {
-  item: RequisitoEstado
-  def: RequisitoDef
-  onChange: (patch: Partial<RequisitoEstado>) => void
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  cap: CapacitacionSGC | null
 }) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  const { startUpload, isUploading } = useUploadThing('requisitoPersonal')
+  const orgId = useOrgId()
+  const create = useCreateCapacitacion()
+  const update = useUpdateCapacitacion()
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    if (!files.length) return
-    const res = await startUpload(files)
-    if (res?.[0]?.url) {
-      onChange({
-        archivo: res[0].url,
-        estado: item.estado === 'VIGENTE' ? 'VIGENTE' : 'POR_VALIDAR',
-      })
+  const [form, setForm] = useState<CapForm>(() =>
+    cap
+      ? {
+          nombre: cap.nombre,
+          area: cap.area,
+          fechaObjetivo: cap.fechaObjetivo,
+          responsable: cap.responsable,
+          estado: cap.estado,
+          observaciones: cap.observaciones ?? '',
+        }
+      : { nombre: '', area: '', fechaObjetivo: '', responsable: '', estado: 'programada', observaciones: '' }
+  )
+  const [saving, setSaving] = useState(false)
+  const set = (k: keyof CapForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const valid = form.nombre.trim() && form.area.trim() && form.fechaObjetivo && form.responsable.trim()
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!valid) return
+    setSaving(true)
+    try {
+      if (cap) {
+        await update({
+          id: cap._id,
+          nombre: form.nombre,
+          area: form.area,
+          fechaObjetivo: form.fechaObjetivo,
+          responsable: form.responsable,
+          estado: form.estado,
+          observaciones: form.observaciones || undefined,
+        })
+      } else {
+        await create({
+          orgId,
+          nombre: form.nombre,
+          area: form.area,
+          fechaObjetivo: form.fechaObjetivo,
+          responsable: form.responsable,
+          estado: form.estado,
+          observaciones: form.observaciones || undefined,
+        })
+      }
+      onOpenChange(false)
+    } finally {
+      setSaving(false)
     }
-    // reset input so the same file can be re-selected
-    if (fileRef.current) fileRef.current.value = ''
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card/30 px-3 py-2 space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-sm font-medium">{def.nombre}</div>
-          <div className="text-[0.65rem] text-muted-foreground">{def.norma}</div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {item.archivo && (
-            <a
-              href={item.archivo}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[0.65rem] text-primary underline"
-            >
-              Ver doc
-            </a>
-          )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,image/*"
-            className="hidden"
-            onChange={handleFile}
-          />
-          <Button
-            type="button"
-            size="icon"
-            variant={item.archivo ? 'default' : 'outline'}
-            className="h-7 w-7"
-            disabled={isUploading}
-            onClick={() => fileRef.current?.click()}
-            title="Adjuntar documento"
-          >
-            {isUploading ? (
-              <span className="text-[0.55rem] animate-pulse">…</span>
-            ) : (
-              <Paperclip className="h-3.5 w-3.5" />
-            )}
-          </Button>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Select
-          value={item.estado}
-          onValueChange={(v) => onChange({ estado: v as EstadoRequisito })}
-        >
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="VIGENTE">Vigente</SelectItem>
-            <SelectItem value="POR_VALIDAR">Por validar</SelectItem>
-            <SelectItem value="SIN_CARGAR">Sin cargar</SelectItem>
-            <SelectItem value="VENCIDO">Vencido</SelectItem>
-            <SelectItem value="CRITICO">Crítico</SelectItem>
-            <SelectItem value="NO_APLICA">No aplica</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          type="date"
-          className="h-8 text-xs"
-          value={item.fechaVigencia ?? ''}
-          onChange={(e) =>
-            onChange({ fechaVigencia: e.target.value || undefined })
-          }
-        />
-      </div>
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{cap ? 'Editar capacitación' : 'Nueva capacitación'}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+          <div className="space-y-1">
+            <Label htmlFor="c-nombre">Nombre</Label>
+            <Input id="c-nombre" value={form.nombre} onChange={(e) => set('nombre')(e.target.value)} required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="c-area">Área</Label>
+              <Input id="c-area" value={form.area} onChange={(e) => set('area')(e.target.value)} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="c-estado">Estado</Label>
+              <Select value={form.estado} onValueChange={set('estado')}>
+                <SelectTrigger id="c-estado">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="programada">Programada</SelectItem>
+                  <SelectItem value="ejecutada">Ejecutada</SelectItem>
+                  <SelectItem value="cancelada">Cancelada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="c-fecha">Fecha objetivo</Label>
+              <Input id="c-fecha" type="date" value={form.fechaObjetivo} onChange={(e) => set('fechaObjetivo')(e.target.value)} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="c-resp">Responsable</Label>
+              <Input id="c-resp" value={form.responsable} onChange={(e) => set('responsable')(e.target.value)} required />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="c-obs">Observaciones</Label>
+            <Textarea
+              id="c-obs"
+              value={form.observaciones}
+              onChange={(e) => set('observaciones')(e.target.value)}
+              rows={2}
+              className="resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving || !valid}>
+              {saving ? 'Guardando…' : cap ? 'Guardar cambios' : 'Agregar'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 
-function EstadoBadge({
-  estado,
-}: {
-  estado: ReturnType<typeof estadoCompletitud>
-}) {
+function EstadoBadge({ estado }: { estado: ReturnType<typeof estadoCompletitud> }) {
   const styles =
     estado === 'Crítico'
       ? 'bg-red-400/20 text-red-400 border-red-400/40'
@@ -962,11 +1068,21 @@ function ReqEstadoBadge({ estado }: { estado: EstadoRequisito }) {
     NO_APLICA: 'bg-muted text-muted-foreground',
   }
   return (
-    <Badge
-      variant="outline"
-      className={`${styles[estado]} text-[0.65rem] shrink-0`}
-    >
+    <Badge variant="outline" className={`${styles[estado]} text-[0.65rem] shrink-0`}>
       {estado.replace('_', ' ')}
+    </Badge>
+  )
+}
+
+function CapEstadoBadge({ estado }: { estado: CapacitacionSGC['estado'] }) {
+  const styles: Record<CapacitacionSGC['estado'], string> = {
+    programada: 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40',
+    ejecutada: 'bg-emerald-400/20 text-emerald-400 border-emerald-400/40',
+    cancelada: 'bg-muted text-muted-foreground',
+  }
+  return (
+    <Badge variant="outline" className={`${styles[estado]} capitalize`}>
+      {estado}
     </Badge>
   )
 }
