@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowRight, Edit2, Paperclip, Plus, Trash2 } from 'lucide-react'
-import { ScrollArea } from '#/components/ui/scroll-area'
-import { useRef, useState } from 'react'
+import { ArrowRight, Edit2, Link2, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { KpiMeta } from '#/components/kpi-meta'
 import { SedePills } from '#/components/sede-pills'
 import { Badge } from '#/components/ui/badge'
@@ -57,7 +56,8 @@ import {
 } from '#/lib/domain/personal'
 import type { CargoSGC, PersonaSGC } from '#/lib/domain/personal'
 import { useOrgId } from '#/lib/org-context'
-import { useUploadThing } from '#/lib/uploadthing-client'
+import { useMutation } from 'convex/react'
+import { api } from '@cualia/convex'
 import type {
   EstadoRequisito,
   RequisitoDef,
@@ -325,16 +325,6 @@ function PersonaDetalleDialog({
     }
   }
 
-  async function handleAutoSave(
-    defId: string,
-    patch: Partial<RequisitoEstado>
-  ) {
-    const merged = draft.map((r) =>
-      r.defId === defId ? { ...r, ...patch } : r
-    )
-    await updatePersona({ id: persona._id, requisitos: cleanDraft(merged) })
-  }
-
   async function handleDelete() {
     await removePersona({ id: persona._id })
     onClose()
@@ -393,7 +383,7 @@ function PersonaDetalleDialog({
 
         <div className="grid grid-cols-[220px_1fr] flex-1 min-h-0 overflow-hidden">
           {/* columna izquierda: datos */}
-          <ScrollArea className="border-r border-border">
+          <div className="border-r border-border overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
             <div className="px-5 py-5 space-y-3 text-sm">
               <InfoRow label="Cédula" value={persona.cedula} />
               <InfoRow
@@ -414,7 +404,7 @@ function PersonaDetalleDialog({
               />
               {cargo?.area && <InfoRow label="Área" value={cargo.area} />}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* columna derecha: requisitos */}
           <div className="flex flex-col overflow-hidden">
@@ -427,83 +417,82 @@ function PersonaDetalleDialog({
               )}
             </div>
 
-            <ScrollArea className="flex-1">
-            <div className="px-5 pb-5 space-y-2">
-              {!editReqs ? (
-                <>
-                  {resolved.map((i) => (
-                    <div
-                      key={i.def.id}
-                      className="flex items-start gap-3 rounded-lg border border-border bg-card/30 px-3 py-2"
-                    >
-                      <ReqEstadoBadge estado={i.estado} />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium truncate">
-                          {i.def.nombre}
+            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+              <div className="px-5 pb-5 space-y-2">
+                {!editReqs ? (
+                  <>
+                    {resolved.map((i) => (
+                      <div
+                        key={i.def.id}
+                        className="flex items-start gap-3 rounded-lg border border-border bg-card/30 px-3 py-2"
+                      >
+                        <ReqEstadoBadge estado={i.estado} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">
+                            {i.def.nombre}
+                          </div>
+                          <div className="text-[0.65rem] text-muted-foreground">
+                            {i.def.norma}
+                            {i.fechaVigencia
+                              ? ` · Vence ${new Date(i.fechaVigencia).toLocaleDateString('es-CO')}`
+                              : ''}
+                          </div>
                         </div>
-                        <div className="text-[0.65rem] text-muted-foreground">
-                          {i.def.norma}
-                          {i.fechaVigencia
-                            ? ` · Vence ${new Date(i.fechaVigencia).toLocaleDateString('es-CO')}`
-                            : ''}
-                        </div>
+                        {persona.requisitos.find((r) => r.defId === i.def.id)
+                          ?.fileUrl && (
+                          <a
+                            href={
+                              persona.requisitos.find(
+                                (r) => r.defId === i.def.id
+                              )!.fileUrl
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[0.65rem] text-primary underline shrink-0"
+                          >
+                            Doc
+                          </a>
+                        )}
                       </div>
-                      {persona.requisitos.find((r) => r.defId === i.def.id)
-                        ?.fileUrl && (
-                        <a
-                          href={
-                            persona.requisitos.find(
-                              (r) => r.defId === i.def.id
-                            )!.fileUrl
+                    ))}
+                    {resolved.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-10">
+                        Sin requisitos definidos para este cargo
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {draft.map((item) => {
+                      const def = defs.find((d) => d.id === item.defId)
+                      if (!def) return null
+                      return (
+                        <ReqItemEdit
+                          key={item.defId}
+                          item={item}
+                          def={def}
+                          onChange={(patch) =>
+                            updateDraftItem(item.defId, patch)
                           }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[0.65rem] text-primary underline shrink-0"
-                        >
-                          Doc
-                        </a>
-                      )}
+                        />
+                      )
+                    })}
+                    <div className="flex gap-2 pt-2">
+                      <Button size="sm" onClick={saveReqs} disabled={saving}>
+                        {saving ? 'Guardando…' : 'Guardar cambios'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditReqs(false)}
+                      >
+                        Cancelar
+                      </Button>
                     </div>
-                  ))}
-                  {resolved.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-10">
-                      Sin requisitos definidos para este cargo
-                    </p>
-                  )}
-                </>
-              ) : (
-                <>
-                  {draft.map((item) => {
-                    const def = defs.find((d) => d.id === item.defId)
-                    if (!def) return null
-                    return (
-                      <ReqItemEdit
-                        key={item.defId}
-                        item={item}
-                        def={def}
-                        onChange={(patch) => updateDraftItem(item.defId, patch)}
-                        onAutoSave={(patch) =>
-                          handleAutoSave(item.defId, patch)
-                        }
-                      />
-                    )
-                  })}
-                  <div className="flex gap-2 pt-2">
-                    <Button size="sm" onClick={saveReqs} disabled={saving}>
-                      {saving ? 'Guardando…' : 'Guardar cambios'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setEditReqs(false)}
-                    >
-                      Cancelar
-                    </Button>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
-            </ScrollArea>
           </div>
         </div>
       </DialogContent>
@@ -526,29 +515,22 @@ function ReqItemEdit({
   item,
   def,
   onChange,
-  onAutoSave,
 }: {
   item: RequisitoEstado
   def: RequisitoDef
   onChange: (patch: Partial<RequisitoEstado>) => void
-  onAutoSave: (patch: Partial<RequisitoEstado>) => Promise<void>
 }) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  const { startUpload, isUploading } = useUploadThing('requisitoPersonal')
+  const [showUrl, setShowUrl] = useState(false)
+  const [urlInput, setUrlInput] = useState(item.fileUrl ?? '')
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    if (!files.length) return
-    const res = await startUpload(files)
-    if (res?.[0]?.url) {
-      const patch: Partial<RequisitoEstado> = {
-        fileUrl: res[0].url,
-        estado: item.estado === 'VIGENTE' ? 'VIGENTE' : 'POR_VALIDAR',
-      }
-      onChange(patch)
-      await onAutoSave(patch)
+  function commitUrl() {
+    const url = urlInput.trim()
+    const patch: Partial<RequisitoEstado> = {
+      fileUrl: url || undefined,
+      estado: url && item.estado === 'SIN_CARGAR' ? 'POR_VALIDAR' : item.estado,
     }
-    if (fileRef.current) fileRef.current.value = ''
+    onChange(patch)
+    setShowUrl(false)
   }
 
   return (
@@ -556,12 +538,10 @@ function ReqItemEdit({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-medium">{def.nombre}</div>
-          <div className="text-[0.65rem] text-muted-foreground">
-            {def.norma}
-          </div>
+          <div className="text-[0.65rem] text-muted-foreground">{def.norma}</div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {item.fileUrl && (
+          {item.fileUrl && !showUrl && (
             <a
               href={item.fileUrl}
               target="_blank"
@@ -571,30 +551,33 @@ function ReqItemEdit({
               Ver doc
             </a>
           )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,image/*"
-            className="hidden"
-            onChange={handleFile}
-          />
           <Button
             type="button"
             size="icon"
             variant={item.fileUrl ? 'default' : 'outline'}
             className="h-7 w-7"
-            disabled={isUploading}
-            onClick={() => fileRef.current?.click()}
-            title="Adjuntar documento"
+            onClick={() => { setUrlInput(item.fileUrl ?? ''); setShowUrl((v) => !v) }}
+            title="Enlace al documento"
           >
-            {isUploading ? (
-              <span className="text-[0.55rem] animate-pulse">…</span>
-            ) : (
-              <Paperclip className="h-3.5 w-3.5" />
-            )}
+            <Link2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
+      {showUrl && (
+        <div className="flex gap-1">
+          <Input
+            autoFocus
+            placeholder="https://... (SharePoint, Drive, etc.)"
+            className="h-7 text-xs flex-1"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitUrl() } }}
+          />
+          <Button type="button" size="sm" className="h-7 text-xs px-2" onClick={commitUrl}>
+            OK
+          </Button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <Select
           value={item.estado}
@@ -933,28 +916,54 @@ function SuficienciaTab({
 // ─── Cronograma tab (CRUD completo) ───────────────────────────────────────────
 
 function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
+  const orgId = useOrgId()
   const [formOpen, setFormOpen] = useState(false)
   const [editCap, setEditCap] = useState<CapacitacionSGC | null>(null)
+  const [seeding, setSeeding] = useState(false)
   const remove = useRemoveCapacitacion()
+  const seed = useMutation(api.seed.seedBetania)
 
   const ejec = caps.filter((c) => c.estado === 'ejecutada').length
   const pct = caps.length > 0 ? Math.round((ejec / caps.length) * 1000) / 10 : 0
 
+  async function handleSeed() {
+    if (!orgId) return
+    setSeeding(true)
+    try { await seed({ orgId }) } finally { setSeeding(false) }
+  }
+
   return (
     <div className="space-y-4">
+      {caps.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border p-6 text-center space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Sin capacitaciones programadas. Carga las normativas requeridas para una IPS oncológica.
+          </p>
+          <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
+            {seeding ? 'Cargando…' : 'Cargar capacitaciones normativas'}
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {ejec}/{caps.length} ejecutadas ({pct}%)
+          {caps.length > 0 ? `${ejec}/${caps.length} ejecutadas (${pct}%)` : ''}
         </div>
-        <Button
-          size="sm"
-          onClick={() => {
-            setEditCap(null)
-            setFormOpen(true)
-          }}
-        >
-          <Plus className="h-4 w-4 mr-1" /> Nueva capacitación
-        </Button>
+        <div className="flex gap-2">
+          {caps.length > 0 && (
+            <Button size="sm" variant="ghost" onClick={handleSeed} disabled={seeding} className="text-muted-foreground">
+              {seeding ? 'Cargando…' : 'Cargar normativas'}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditCap(null)
+              setFormOpen(true)
+            }}
+          >
+            <Plus className="h-4 w-4 mr-1" /> Nueva capacitación
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -1009,16 +1018,6 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
                   </TableCell>
                 </TableRow>
               ))}
-              {caps.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center text-muted-foreground py-8"
-                  >
-                    Sin capacitaciones programadas
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </CardContent>
