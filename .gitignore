@@ -10,3 +10,9 @@ dist/
 apps/*/src/routeTree.gen.ts
 packages/convex/convex/_generated/
 packages/convex/convex.json
+
+# graphify output
+graphify-out/
+
+# Dev notes (synced to Obsidian vault)
+docs/dev-notes/
