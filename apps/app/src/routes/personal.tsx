@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { ArrowRight, Edit2, Paperclip, Plus, Trash2 } from 'lucide-react'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { useRef, useState } from 'react'
 import { KpiMeta } from '#/components/kpi-meta'
 import { SedePills } from '#/components/sede-pills'
@@ -294,8 +295,8 @@ function PersonaDetalleDialog({
     setDraft(
       defs.map((def) => ({
         defId: def.id,
-        estado: (byId.get(def.id)?.estado ??
-          (def.critico ? 'CRITICO' : 'SIN_CARGAR')),
+        estado:
+          byId.get(def.id)?.estado ?? (def.critico ? 'CRITICO' : 'SIN_CARGAR'),
         fechaVigencia: byId.get(def.id)?.fechaVigencia ?? undefined,
         observacion: byId.get(def.id)?.observacion ?? undefined,
         fileUrl: byId.get(def.id)?.fileUrl ?? undefined,
@@ -341,7 +342,7 @@ function PersonaDetalleDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl w-full p-0 gap-0 flex flex-col overflow-hidden max-h-[90vh]">
+      <DialogContent className="sm:max-w-5xl w-full p-0 gap-0 flex flex-col overflow-hidden max-h-[90vh]">
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -392,8 +393,8 @@ function PersonaDetalleDialog({
 
         <div className="grid grid-cols-[220px_1fr] flex-1 min-h-0 overflow-hidden">
           {/* columna izquierda: datos */}
-          <div className="border-r border-border px-5 py-5 space-y-4 overflow-auto">
-            <div className="space-y-3 text-sm">
+          <ScrollArea className="border-r border-border">
+            <div className="px-5 py-5 space-y-3 text-sm">
               <InfoRow label="Cédula" value={persona.cedula} />
               <InfoRow
                 label="Fecha ingreso"
@@ -413,7 +414,7 @@ function PersonaDetalleDialog({
               />
               {cargo?.area && <InfoRow label="Área" value={cargo.area} />}
             </div>
-          </div>
+          </ScrollArea>
 
           {/* columna derecha: requisitos */}
           <div className="flex flex-col overflow-hidden">
@@ -426,7 +427,8 @@ function PersonaDetalleDialog({
               )}
             </div>
 
-            <div className="flex-1 overflow-auto px-5 pb-5 space-y-2">
+            <ScrollArea className="flex-1">
+            <div className="px-5 pb-5 space-y-2">
               {!editReqs ? (
                 <>
                   {resolved.map((i) => (
@@ -501,6 +503,7 @@ function PersonaDetalleDialog({
                 </>
               )}
             </div>
+            </ScrollArea>
           </div>
         </div>
       </DialogContent>

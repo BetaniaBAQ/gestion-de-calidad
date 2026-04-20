@@ -699,6 +699,129 @@ const PAMEC_ACCIONES_SEED = [
   },
 ]
 
+const CAPACITACIONES_NORMATIVAS_SEED = [
+  {
+    nombre: 'Inducción y re-inducción institucional',
+    area: 'Gestión Humana',
+    fechaObjetivo: '2026-03-31',
+    responsable: 'Coordinación de Calidad',
+    estado: 'programada' as const,
+    observaciones: 'Obligatorio todo el personal. Res. 3100/2019 art. 10.',
+  },
+  {
+    nombre: 'Seguridad del paciente — fundamentos y barreras',
+    area: 'Asistencial',
+    fechaObjetivo: '2026-04-30',
+    responsable: 'Coordinación de Calidad',
+    estado: 'programada' as const,
+    observaciones: 'Res. 256/2016 indicadores de seguridad del paciente.',
+  },
+  {
+    nombre: 'Identificación correcta del paciente',
+    area: 'Asistencial',
+    fechaObjetivo: '2026-04-30',
+    responsable: 'Coord. Enfermería',
+    estado: 'programada' as const,
+    observaciones: 'Meta 1 OMS seguridad del paciente.',
+  },
+  {
+    nombre: 'Manejo seguro de medicamentos de alto riesgo y citotóxicos',
+    area: 'Farmacia / Enfermería',
+    fechaObjetivo: '2026-05-31',
+    responsable: 'Coordinación de Calidad',
+    estado: 'programada' as const,
+    observaciones: 'Dec. 780/2016. Obligatorio en IPS oncológica.',
+  },
+  {
+    nombre: 'Bioseguridad y gestión de residuos hospitalarios',
+    area: 'Asistencial',
+    fechaObjetivo: '2026-05-31',
+    responsable: 'Coord. Calidad',
+    estado: 'programada' as const,
+    observaciones: 'Dec. 351/2014 gestión de residuos.',
+  },
+  {
+    nombre: 'Soporte Vital Básico (BLS)',
+    area: 'Asistencial',
+    fechaObjetivo: '2026-06-30',
+    responsable: 'Coord. Médica',
+    estado: 'programada' as const,
+    observaciones: 'Todo personal asistencial. Res. 3100/2019 riesgo vital.',
+  },
+  {
+    nombre: 'Soporte Vital Avanzado (ACLS)',
+    area: 'Médicos / Enfermería Profesional',
+    fechaObjetivo: '2026-06-30',
+    responsable: 'Coord. Médica',
+    estado: 'programada' as const,
+    observaciones: 'Médicos y enfermeras profesionales en áreas críticas.',
+  },
+  {
+    nombre: 'Farmacovigilancia y tecnovigilancia',
+    area: 'Farmacia / Asistencial',
+    fechaObjetivo: '2026-07-31',
+    responsable: 'Regente de Farmacia',
+    estado: 'programada' as const,
+    observaciones: 'Res. 2003/2014. Reporte al SIVIGILA.',
+  },
+  {
+    nombre: 'Humanización en salud y atención centrada en el paciente',
+    area: 'Todo el personal',
+    fechaObjetivo: '2026-07-31',
+    responsable: 'Coordinación de Calidad',
+    estado: 'programada' as const,
+    observaciones: 'Política de humanización. Res. 3100/2019.',
+  },
+  {
+    nombre: 'Manejo de accesos venosos centrales y periféricos',
+    area: 'Enfermería',
+    fechaObjetivo: '2026-08-31',
+    responsable: 'Coord. Enfermería',
+    estado: 'programada' as const,
+    observaciones: 'Protocolo de inserción y mantenimiento de catéteres.',
+  },
+  {
+    nombre: 'Cadena de frío y almacenamiento de medicamentos',
+    area: 'Farmacia',
+    fechaObjetivo: '2026-08-31',
+    responsable: 'Regente de Farmacia',
+    estado: 'programada' as const,
+    observaciones: 'Dec. 780/2016 cap. 10 servicio farmacéutico.',
+  },
+  {
+    nombre: 'Guías de práctica clínica — Oncología / Hematología',
+    area: 'Asistencial',
+    fechaObjetivo: '2026-09-30',
+    responsable: 'Coord. Médica',
+    estado: 'programada' as const,
+    observaciones: 'GPC IETS hemofilia, leucemias, linfomas.',
+  },
+  {
+    nombre: 'Atención a víctimas de violencia sexual',
+    area: 'Asistencial',
+    fechaObjetivo: '2026-09-30',
+    responsable: 'Coordinación de Calidad',
+    estado: 'programada' as const,
+    observaciones: 'Res. 459/2012 protocolo de atención integral.',
+  },
+  {
+    nombre: 'Historia clínica — diligenciamiento y custodia',
+    area: 'Administrativo / Asistencial',
+    fechaObjetivo: '2026-10-31',
+    responsable: 'Coord. Calidad',
+    estado: 'programada' as const,
+    observaciones: 'Res. 1995/1999 historia clínica.',
+  },
+  {
+    nombre: 'Atención al usuario — PQRS y derechos del paciente',
+    area: 'Administrativo',
+    fechaObjetivo: '2026-10-31',
+    responsable: 'Coordinación de Calidad',
+    estado: 'programada' as const,
+    observaciones: 'Ley 1438/2011 derechos y deberes del paciente.',
+  },
+]
+
 // ─── Seed mutation ────────────────────────────────────────────────────────────
 
 export const seedBetania = mutation({
@@ -717,6 +840,7 @@ export const seedBetania = mutation({
       adherencia: 0,
       pamecAuditorias: 0,
       pamecAcciones: 0,
+      capacitaciones: 0,
     }
 
     // ── 1. Tenant ─────────────────────────────────────────────────────────────
@@ -942,6 +1066,19 @@ export const seedBetania = mutation({
       if (!existing) {
         await ctx.db.insert('pamec_acciones', { orgId, ...ac })
         results.pamecAcciones++
+      }
+    }
+
+    // ── 14. Capacitaciones normativas ─────────────────────────────────────────
+    for (const cap of CAPACITACIONES_NORMATIVAS_SEED) {
+      const existing = await ctx.db
+        .query('capacitaciones_programadas')
+        .withIndex('by_org', (q) => q.eq('orgId', orgId))
+        .filter((q) => q.eq(q.field('nombre'), cap.nombre))
+        .first()
+      if (!existing) {
+        await ctx.db.insert('capacitaciones_programadas', { orgId, ...cap })
+        results.capacitaciones++
       }
     }
 

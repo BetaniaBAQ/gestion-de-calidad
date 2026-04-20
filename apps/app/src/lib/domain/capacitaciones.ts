@@ -20,7 +20,8 @@ export type CapacitacionSGC = {
 
 export function useCapacitaciones(): CapacitacionSGC[] {
   const orgId = useOrgId()
-  return (useQuery(api.capacitaciones.listByOrg, orgId ? { orgId } : 'skip') ?? []) as CapacitacionSGC[]
+  return (useQuery(api.capacitaciones.listByOrg, orgId ? { orgId } : 'skip') ??
+    []) as CapacitacionSGC[]
 }
 
 export function useCreateCapacitacion() {

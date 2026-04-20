@@ -767,6 +767,7 @@ function ConfigPage() {
         <TabsTrigger value="cargos">Cargos</TabsTrigger>
         <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
         <TabsTrigger value="items-hab">Ítem Habilitación</TabsTrigger>
+        <TabsTrigger value="datos">Datos iniciales</TabsTrigger>
       </TabsList>
 
       <TabsContent value="sedes" className="space-y-4">
@@ -781,6 +782,55 @@ function ConfigPage() {
       <TabsContent value="items-hab" className="space-y-4">
         <ItemsHabilitacionTab />
       </TabsContent>
+      <TabsContent value="datos" className="space-y-4">
+        <DatosInicialesTab />
+      </TabsContent>
     </Tabs>
+  )
+}
+
+function DatosInicialesTab() {
+  const orgId = useOrgId()
+  const seed = useMutation(api.seed.seedBetania)
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+
+  async function handleSeed() {
+    if (!orgId) return
+    setRunning(true)
+    setResult(null)
+    try {
+      const res = await seed({ orgId })
+      const lines = Object.entries(res)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(' · ')
+      setResult(`Completado — ${lines}`)
+    } catch (e) {
+      setResult(`Error: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6 space-y-4">
+        <div>
+          <p className="text-sm font-medium mb-1">Cargar datos normativos de demostración</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Carga capacitaciones normativas, indicadores, documentos y datos de muestra para
+            Betania. Los registros existentes no se duplican.
+          </p>
+          <Button size="sm" onClick={handleSeed} disabled={running || !orgId}>
+            {running ? 'Cargando…' : 'Ejecutar seed'}
+          </Button>
+        </div>
+        {result && (
+          <p className="text-xs text-muted-foreground border border-border rounded px-3 py-2 font-mono">
+            {result}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
