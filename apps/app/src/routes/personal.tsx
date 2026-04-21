@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowRight, Edit2, Link2, Plus, Trash2 } from 'lucide-react'
+import { ArrowRight, Edit2, FileText, Link2, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { KpiMeta } from '#/components/kpi-meta'
 import { SedePills } from '#/components/sede-pills'
@@ -438,21 +438,19 @@ function PersonaDetalleDialog({
                               : ''}
                           </div>
                         </div>
-                        {persona.requisitos.find((r) => r.defId === i.def.id)
-                          ?.fileUrl && (
-                          <a
-                            href={
-                              persona.requisitos.find(
-                                (r) => r.defId === i.def.id
-                              )!.fileUrl
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[0.65rem] text-primary underline shrink-0"
-                          >
-                            Doc
-                          </a>
-                        )}
+                        {(() => {
+                          const url = persona.requisitos.find((r) => r.defId === i.def.id)?.fileUrl
+                          return url ? (
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[0.65rem] font-medium text-primary hover:bg-primary/20 transition-colors"
+                            >
+                              <FileText className="h-2.5 w-2.5" /> Ver doc
+                            </a>
+                          ) : null
+                        })()}
                       </div>
                     ))}
                     {resolved.length === 0 && (
@@ -538,7 +536,9 @@ function ReqItemEdit({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-medium">{def.nombre}</div>
-          <div className="text-[0.65rem] text-muted-foreground">{def.norma}</div>
+          <div className="text-[0.65rem] text-muted-foreground">
+            {def.norma}
+          </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {item.fileUrl && !showUrl && (
@@ -546,9 +546,9 @@ function ReqItemEdit({
               href={item.fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[0.65rem] text-primary underline"
+              className="inline-flex items-center gap-1 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[0.65rem] font-medium text-primary hover:bg-primary/20 transition-colors"
             >
-              Ver doc
+              <FileText className="h-2.5 w-2.5" /> Ver doc
             </a>
           )}
           <Button
@@ -556,7 +556,10 @@ function ReqItemEdit({
             size="icon"
             variant={item.fileUrl ? 'default' : 'outline'}
             className="h-7 w-7"
-            onClick={() => { setUrlInput(item.fileUrl ?? ''); setShowUrl((v) => !v) }}
+            onClick={() => {
+              setUrlInput(item.fileUrl ?? '')
+              setShowUrl((v) => !v)
+            }}
             title="Enlace al documento"
           >
             <Link2 className="h-3.5 w-3.5" />
@@ -571,9 +574,19 @@ function ReqItemEdit({
             className="h-7 text-xs flex-1"
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitUrl() } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitUrl()
+              }
+            }}
           />
-          <Button type="button" size="sm" className="h-7 text-xs px-2" onClick={commitUrl}>
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={commitUrl}
+          >
             OK
           </Button>
         </div>
@@ -929,7 +942,11 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
   async function handleSeed() {
     if (!orgId) return
     setSeeding(true)
-    try { await seed({ orgId }) } finally { setSeeding(false) }
+    try {
+      await seed({ orgId })
+    } finally {
+      setSeeding(false)
+    }
   }
 
   return (
@@ -937,9 +954,15 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
       {caps.length === 0 && (
         <div className="rounded-lg border border-dashed border-border p-6 text-center space-y-3">
           <p className="text-sm text-muted-foreground">
-            Sin capacitaciones programadas. Carga las normativas requeridas para una IPS oncológica.
+            Sin capacitaciones programadas. Carga las normativas requeridas para
+            una IPS oncológica.
           </p>
-          <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSeed}
+            disabled={seeding}
+          >
             {seeding ? 'Cargando…' : 'Cargar capacitaciones normativas'}
           </Button>
         </div>
@@ -950,7 +973,13 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
         </div>
         <div className="flex gap-2">
           {caps.length > 0 && (
-            <Button size="sm" variant="ghost" onClick={handleSeed} disabled={seeding} className="text-muted-foreground">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleSeed}
+              disabled={seeding}
+              className="text-muted-foreground"
+            >
               {seeding ? 'Cargando…' : 'Cargar normativas'}
             </Button>
           )}
@@ -976,6 +1005,7 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
                 <TableHead>RESPONSABLE</TableHead>
                 <TableHead>FECHA OBJETIVO</TableHead>
                 <TableHead>ESTADO</TableHead>
+                <TableHead>EVIDENCIA</TableHead>
                 <TableHead className="text-right">ACCIÓN</TableHead>
               </TableRow>
             </TableHeader>
@@ -992,6 +1022,22 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
                   </TableCell>
                   <TableCell>
                     <CapEstadoBadge estado={c.estado} />
+                  </TableCell>
+                  <TableCell>
+                    {c.evidenciaUrl ? (
+                      <a
+                        href={c.evidenciaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[0.65rem] font-medium text-emerald-500 hover:bg-emerald-400/20 transition-colors"
+                      >
+                        <FileText className="h-2.5 w-2.5" /> Ver
+                      </a>
+                    ) : c.estado === 'ejecutada' ? (
+                      <span className="text-[0.65rem] text-yellow-500">Pendiente</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -1045,6 +1091,7 @@ type CapForm = {
   responsable: string
   estado: 'programada' | 'ejecutada' | 'cancelada'
   observaciones: string
+  evidenciaUrl: string
 }
 
 function CapacitacionFormDialog({
@@ -1069,6 +1116,7 @@ function CapacitacionFormDialog({
           responsable: cap.responsable,
           estado: cap.estado,
           observaciones: cap.observaciones ?? '',
+          evidenciaUrl: cap.evidenciaUrl ?? '',
         }
       : {
           nombre: '',
@@ -1077,6 +1125,7 @@ function CapacitacionFormDialog({
           responsable: '',
           estado: 'programada',
           observaciones: '',
+          evidenciaUrl: '',
         }
   )
   const [saving, setSaving] = useState(false)
@@ -1102,6 +1151,7 @@ function CapacitacionFormDialog({
           responsable: form.responsable,
           estado: form.estado,
           observaciones: form.observaciones || undefined,
+          evidenciaUrl: form.evidenciaUrl || undefined,
         })
       } else {
         await create({
@@ -1191,6 +1241,21 @@ function CapacitacionFormDialog({
               className="resize-none"
             />
           </div>
+          {form.estado === 'ejecutada' && (
+            <div className="space-y-1">
+              <Label htmlFor="c-evidencia" className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-emerald-500" />
+                Evidencia de cumplimiento
+                <span className="text-[0.65rem] text-muted-foreground font-normal">(lista asistencia, certificado…)</span>
+              </Label>
+              <Input
+                id="c-evidencia"
+                placeholder="https://... SharePoint, Drive, etc."
+                value={form.evidenciaUrl}
+                onChange={(e) => set('evidenciaUrl')(e.target.value)}
+              />
+            </div>
+          )}
           <DialogFooter>
             <Button
               type="button"
