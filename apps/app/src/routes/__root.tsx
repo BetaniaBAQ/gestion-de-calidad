@@ -7,9 +7,10 @@ import {
   useLocation,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { ConvexProvider } from 'convex/react'
-import type { SessionData } from '#/lib/auth.server'
+import { AuthKitProvider } from '@workos/authkit-tanstack-react-start/client'
+import { ConvexProviderWithAuth } from 'convex/react'
 import { convexClient } from '#/lib/convex'
+import { useAuthFromWorkOS } from '#/lib/convex-auth'
 import {
   BadgeCheck,
   Building2,
@@ -70,49 +71,13 @@ import { StoreHydrator } from '#/lib/hydration'
 import { OrgContext } from '#/lib/org-context'
 import appCss from '../styles.css?url'
 
-// ─── Server function: lee la sesión desde la cookie ─────────────────────────
-const getSessionFn = createServerFn({ method: 'POST' }).handler(async () => {
-  const { getSession } = await import('#/lib/auth.server')
-  return getSession()
-})
-
-// ─── Server function: cierra la sesión ───────────────────────────────────────
-// Borra la sesión local y revoca las sesiones de WorkOS para el usuario.
-// Devuelve la URL de login de WorkOS para que el cliente navegue allí.
-const logoutFn = createServerFn({ method: 'POST' }).handler(async () => {
-  const { getSession, clearSession, workos } = await import('#/lib/auth.server')
-  const { env } = await import('#/env')
-  const session = await getSession()
-  await clearSession()
-
-  // Revocar todas las sesiones activas del usuario en WorkOS
-  if (session?.userId) {
-    try {
-      const { data: sessions } = await workos.userManagement.listSessions(
-        session.userId
-      )
-      await Promise.all(
-        sessions.map((s) =>
-          workos.userManagement.revokeSession({ sessionId: s.id })
-        )
-      )
-      console.log('[logout] sesiones WorkOS revocadas:', sessions.length)
-    } catch (e) {
-      console.warn(
-        '[logout] revokeSession falló (sessions no habilitadas?):',
-        e
-      )
-    }
-  }
-
-  // Devolver URL de login de WorkOS
-  return workos.userManagement.getAuthorizationUrl({
-    clientId: env.WORKOS_CLIENT_ID,
-    redirectUri: env.WORKOS_REDIRECT_URI,
-    provider: 'authkit',
-    prompt: 'login',
-  })
-})
+type AppSession = {
+  firstName: string | null
+  lastName: string | null
+  email: string
+  orgSlug: string
+  orgId: string
+}
 
 type NavItem = {
   to: string
@@ -154,15 +119,38 @@ const PAGE_HEADERS: Record<string, { title: string }> = {
   '/config': { title: 'Configuración' },
 }
 
+const getSessionFn = createServerFn({ method: 'POST' }).handler(
+  async (): Promise<AppSession | null> => {
+    const { getAuth, getSignInUrl } =
+      await import('@workos/authkit-tanstack-react-start')
+    const auth = await getAuth()
+    if (!auth.user) return null
+    const { resolveOrgSlug } = await import('#/lib/auth.server')
+    return {
+      firstName: auth.user.firstName,
+      lastName: auth.user.lastName,
+      email: auth.user.email,
+      orgSlug: resolveOrgSlug(),
+      orgId: auth.organizationId ?? '',
+    }
+  }
+)
+
+const getSignInUrlFn = createServerFn({ method: 'POST' }).handler(async () => {
+  const { getSignInUrl } = await import('@workos/authkit-tanstack-react-start')
+  return getSignInUrl()
+})
+
 export const Route = createRootRoute({
-  // Guard: redirige a /auth/login si no hay sesión activa.
-  // Las rutas /auth/* están exentas.
   beforeLoad: async ({ location }) => {
     if (location.pathname.startsWith('/auth')) {
-      return { session: null as SessionData | null }
+      return { session: null as AppSession | null }
     }
     const session = await getSessionFn()
-    if (!session) throw redirect({ to: '/auth/login' })
+    if (!session) {
+      const signInUrl = await getSignInUrlFn()
+      throw redirect({ href: signInUrl })
+    }
     return { session }
   },
   head: () => ({
@@ -348,9 +336,8 @@ function HeaderBar() {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={async () => {
-              const url = await logoutFn()
-              window.location.href = url
+            onClick={() => {
+              window.location.href = '/auth/logout'
             }}
           >
             <LogOut className="mr-2 h-4 w-4" />
@@ -382,28 +369,35 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             : 'bg-background text-foreground antialiased'
         }
       >
-        <OrgContext.Provider value={session?.orgId ?? ''}>
-          <ConvexProvider client={convexClient}>
-            {isAuthRoute ? (
-              children
-            ) : (
-              <>
-                <StoreHydrator />
-                <SidebarProvider>
-                  <AppSidebar />
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <HeaderBar />
-                    <div className="flex items-center gap-1 border-b border-border px-4 py-1.5 text-xs text-muted-foreground">
-                      <Building2 className="h-3 w-3" />
-                      <span>Instituto Oncohematológico Betania</span>
+        <AuthKitProvider>
+          <OrgContext.Provider value={session?.orgId ?? ''}>
+            <ConvexProviderWithAuth
+              client={convexClient}
+              useAuth={useAuthFromWorkOS}
+            >
+              {isAuthRoute ? (
+                children
+              ) : (
+                <>
+                  <StoreHydrator />
+                  <SidebarProvider>
+                    <AppSidebar />
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <HeaderBar />
+                      <div className="flex items-center gap-1 border-b border-border px-4 py-1.5 text-xs text-muted-foreground">
+                        <Building2 className="h-3 w-3" />
+                        <span>Instituto Oncohematológico Betania</span>
+                      </div>
+                      <main className="flex-1 overflow-auto p-6">
+                        {children}
+                      </main>
                     </div>
-                    <main className="flex-1 overflow-auto p-6">{children}</main>
-                  </div>
-                </SidebarProvider>
-              </>
-            )}
-          </ConvexProvider>
-        </OrgContext.Provider>
+                  </SidebarProvider>
+                </>
+              )}
+            </ConvexProviderWithAuth>
+          </OrgContext.Provider>
+        </AuthKitProvider>
         <Scripts />
       </body>
     </html>

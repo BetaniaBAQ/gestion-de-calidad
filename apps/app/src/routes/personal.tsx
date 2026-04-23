@@ -439,7 +439,9 @@ function PersonaDetalleDialog({
                           </div>
                         </div>
                         {(() => {
-                          const url = persona.requisitos.find((r) => r.defId === i.def.id)?.fileUrl
+                          const url = persona.requisitos.find(
+                            (r) => r.defId === i.def.id
+                          )?.fileUrl
                           return url ? (
                             <a
                               href={url}
@@ -1034,7 +1036,9 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
                         <FileText className="h-2.5 w-2.5" /> Ver
                       </a>
                     ) : c.estado === 'ejecutada' ? (
-                      <span className="text-[0.65rem] text-yellow-500">Pendiente</span>
+                      <span className="text-[0.65rem] text-yellow-500">
+                        Pendiente
+                      </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -1243,10 +1247,15 @@ function CapacitacionFormDialog({
           </div>
           {form.estado === 'ejecutada' && (
             <div className="space-y-1">
-              <Label htmlFor="c-evidencia" className="flex items-center gap-1.5">
+              <Label
+                htmlFor="c-evidencia"
+                className="flex items-center gap-1.5"
+              >
                 <FileText className="h-3.5 w-3.5 text-emerald-500" />
                 Evidencia de cumplimiento
-                <span className="text-[0.65rem] text-muted-foreground font-normal">(lista asistencia, certificado…)</span>
+                <span className="text-[0.65rem] text-muted-foreground font-normal">
+                  (lista asistencia, certificado…)
+                </span>
               </Label>
               <Input
                 id="c-evidencia"

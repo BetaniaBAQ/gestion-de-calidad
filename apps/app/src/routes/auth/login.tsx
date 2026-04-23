@@ -1,20 +1,25 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 
-// Genera la URL de WorkOS AuthKit y redirige al browser
-const getLoginUrl = createServerFn().handler(async () => {
-  const { workos } = await import('#/lib/auth.server')
-  const { env } = await import('#/env')
-  return workos.userManagement.getAuthorizationUrl({
-    clientId: env.WORKOS_CLIENT_ID,
-    redirectUri: env.WORKOS_REDIRECT_URI,
-    provider: 'authkit',
-  })
+const loginFn = createServerFn().handler(async () => {
+  const { getAuth, getSignInUrl } = await import(
+    '@workos/authkit-tanstack-react-start'
+  )
+  const { user } = await getAuth()
+  if (user) return '/dashboard'
+
+  const { resolveOrgSlug, resolveWorkosOrgId } = await import(
+    '#/lib/auth.server'
+  )
+  const slug = resolveOrgSlug()
+  const orgId = await resolveWorkosOrgId(slug)
+
+  return getSignInUrl(orgId ? { data: { organizationId: orgId } } : undefined)
 })
 
 export const Route = createFileRoute('/auth/login')({
   beforeLoad: async () => {
-    const url = await getLoginUrl()
+    const url = await loginFn()
     throw redirect({ href: url })
   },
   component: () => null,

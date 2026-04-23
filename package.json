@@ -11,7 +11,8 @@
     "test": "turbo test",
     "prepare": "husky",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
-    "changelog:all": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0"
+    "changelog:all": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
+    "seed:tenant": "node scripts/seed-tenant.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",

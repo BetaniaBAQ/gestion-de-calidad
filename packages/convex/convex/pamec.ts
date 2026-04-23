@@ -1,5 +1,6 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
+import { getOrgId } from './lib/auth'
 
 const TIPO_AUD = v.union(
   v.literal('interna'),
@@ -49,8 +50,9 @@ const HALLAZGO_EMBED = v.object({
 // ── Auditorías ───────────────────────────────────────────────────────────────
 
 export const listAuditoriasByOrg = query({
-  args: { orgId: v.string() },
-  handler: async (ctx, { orgId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const orgId = await getOrgId(ctx)
     return ctx.db
       .query('pamec_auditorias')
       .withIndex('by_org', (q) => q.eq('orgId', orgId))
@@ -60,7 +62,6 @@ export const listAuditoriasByOrg = query({
 
 export const createAuditoria = mutation({
   args: {
-    orgId: v.string(),
     sedeId: v.id('sedes'),
     sedeCodigo: v.string(),
     tipo: TIPO_AUD,
@@ -73,7 +74,8 @@ export const createAuditoria = mutation({
     hallazgos: v.optional(v.array(HALLAZGO_EMBED)),
   },
   handler: async (ctx, args) => {
-    return ctx.db.insert('pamec_auditorias', args)
+    const orgId = await getOrgId(ctx)
+    return ctx.db.insert('pamec_auditorias', { ...args, orgId })
   },
 })
 
@@ -106,8 +108,9 @@ export const removeAuditoria = mutation({
 // ── Acciones ─────────────────────────────────────────────────────────────────
 
 export const listAccionesByOrg = query({
-  args: { orgId: v.string() },
-  handler: async (ctx, { orgId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const orgId = await getOrgId(ctx)
     return ctx.db
       .query('pamec_acciones')
       .withIndex('by_org', (q) => q.eq('orgId', orgId))
@@ -117,7 +120,6 @@ export const listAccionesByOrg = query({
 
 export const createAccion = mutation({
   args: {
-    orgId: v.string(),
     sedeCodigo: v.string(),
     hallazgo: v.string(),
     causa: v.string(),
@@ -130,7 +132,8 @@ export const createAccion = mutation({
     resultado: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return ctx.db.insert('pamec_acciones', args)
+    const orgId = await getOrgId(ctx)
+    return ctx.db.insert('pamec_acciones', { ...args, orgId })
   },
 })
 

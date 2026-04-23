@@ -1,5 +1,6 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
+import { getOrgId } from './lib/auth'
 
 const TIPO = v.union(
   v.literal('alerta_invima'),
@@ -9,8 +10,9 @@ const TIPO = v.union(
 )
 
 export const listByOrg = query({
-  args: { orgId: v.string() },
-  handler: async (ctx, { orgId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const orgId = await getOrgId(ctx)
     return ctx.db
       .query('alertas_sanitarias')
       .withIndex('by_org', (q) => q.eq('orgId', orgId))
@@ -20,7 +22,6 @@ export const listByOrg = query({
 
 export const create = mutation({
   args: {
-    orgId: v.string(),
     fecha: v.string(),
     tipo: TIPO,
     fuente: v.string(),
@@ -29,7 +30,8 @@ export const create = mutation({
     spLink: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return ctx.db.insert('alertas_sanitarias', args)
+    const orgId = await getOrgId(ctx)
+    return ctx.db.insert('alertas_sanitarias', { ...args, orgId })
   },
 })
 

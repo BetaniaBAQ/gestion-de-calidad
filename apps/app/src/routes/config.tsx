@@ -816,10 +816,12 @@ function DatosInicialesTab() {
     <Card>
       <CardContent className="pt-6 space-y-4">
         <div>
-          <p className="text-sm font-medium mb-1">Cargar datos normativos de demostración</p>
+          <p className="text-sm font-medium mb-1">
+            Cargar datos normativos de demostración
+          </p>
           <p className="text-xs text-muted-foreground mb-3">
-            Carga capacitaciones normativas, indicadores, documentos y datos de muestra para
-            Betania. Los registros existentes no se duplican.
+            Carga capacitaciones normativas, indicadores, documentos y datos de
+            muestra para Betania. Los registros existentes no se duplican.
           </p>
           <Button size="sm" onClick={handleSeed} disabled={running || !orgId}>
             {running ? 'Cargando…' : 'Ejecutar seed'}

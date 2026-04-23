@@ -1,5 +1,6 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
+import { getOrgId } from './lib/auth'
 
 const TIPO = v.union(
   v.literal('procedimiento'),
@@ -24,8 +25,9 @@ const ESTADO = v.union(
 )
 
 export const listByOrg = query({
-  args: { orgId: v.string() },
-  handler: async (ctx, { orgId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const orgId = await getOrgId(ctx)
     return ctx.db
       .query('documentos')
       .withIndex('by_org', (q) => q.eq('orgId', orgId))
@@ -35,7 +37,6 @@ export const listByOrg = query({
 
 export const create = mutation({
   args: {
-    orgId: v.string(),
     codigo: v.string(),
     nombre: v.string(),
     tipo: TIPO,
@@ -49,7 +50,8 @@ export const create = mutation({
     archivo: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return ctx.db.insert('documentos', args)
+    const orgId = await getOrgId(ctx)
+    return ctx.db.insert('documentos', { ...args, orgId })
   },
 })
 

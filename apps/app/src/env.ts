@@ -32,6 +32,9 @@ export const env = createEnv({
     // Tenant activo en localhost (no hay subdominio en desarrollo local)
     // En producción se ignora — el tenant se resuelve por subdominio
     DEV_ORG_SLUG: z.string().min(1).optional(),
+
+    // WorkOS Organization ID de la org admin (Cualia)
+    CUALIA_ADMIN_ORG_ID: z.string().startsWith('org_').optional(),
   },
 
   // ── Variables de cliente (expuestas al browser, prefijo VITE_) ──────────
@@ -55,6 +58,7 @@ export const env = createEnv({
     WORKOS_COOKIE_SECRET: process.env.WORKOS_COOKIE_SECRET,
     CONVEX_DEPLOYMENT: process.env.CONVEX_DEPLOYMENT,
     DEV_ORG_SLUG: process.env.DEV_ORG_SLUG,
+    CUALIA_ADMIN_ORG_ID: process.env.CUALIA_ADMIN_ORG_ID,
     VITE_CONVEX_URL: import.meta.env.VITE_CONVEX_URL,
     VITE_WORKOS_CLIENT_ID: import.meta.env.VITE_WORKOS_CLIENT_ID,
   },

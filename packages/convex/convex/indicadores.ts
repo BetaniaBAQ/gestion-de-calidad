@@ -1,5 +1,6 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
+import { getOrgId } from './lib/auth'
 
 const FRECUENCIA = v.union(
   v.literal('mensual'),
@@ -11,8 +12,9 @@ const FRECUENCIA = v.union(
 // ── Fichas técnicas ──────────────────────────────────────────────────────────
 
 export const listByOrg = query({
-  args: { orgId: v.string() },
-  handler: async (ctx, { orgId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const orgId = await getOrgId(ctx)
     return ctx.db
       .query('indicadores')
       .withIndex('by_org', (q) => q.eq('orgId', orgId))
@@ -22,7 +24,6 @@ export const listByOrg = query({
 
 export const create = mutation({
   args: {
-    orgId: v.string(),
     nombre: v.string(),
     descripcion: v.string(),
     formula: v.string(),
@@ -36,7 +37,8 @@ export const create = mutation({
     activo: v.boolean(),
   },
   handler: async (ctx, args) => {
-    return ctx.db.insert('indicadores', args)
+    const orgId = await getOrgId(ctx)
+    return ctx.db.insert('indicadores', { ...args, orgId })
   },
 })
 
@@ -70,8 +72,9 @@ export const remove = mutation({
 // ── Mediciones ───────────────────────────────────────────────────────────────
 
 export const listMedicionesByOrg = query({
-  args: { orgId: v.string() },
-  handler: async (ctx, { orgId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const orgId = await getOrgId(ctx)
     return ctx.db
       .query('mediciones_indicadores')
       .withIndex('by_org', (q) => q.eq('orgId', orgId))
@@ -81,7 +84,6 @@ export const listMedicionesByOrg = query({
 
 export const createMedicion = mutation({
   args: {
-    orgId: v.string(),
     indicadorId: v.id('indicadores'),
     sedeId: v.optional(v.id('sedes')),
     periodo: v.string(),
@@ -92,7 +94,8 @@ export const createMedicion = mutation({
     observacion: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return ctx.db.insert('mediciones_indicadores', args)
+    const orgId = await getOrgId(ctx)
+    return ctx.db.insert('mediciones_indicadores', { ...args, orgId })
   },
 })
 

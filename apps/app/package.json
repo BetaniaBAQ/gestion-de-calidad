@@ -30,6 +30,7 @@
     "@tanstack/router-plugin": "^1.132.0",
     "@uploadthing/react": "^7.3.3",
     "@workos-inc/node": "^8.13.0",
+    "@workos/authkit-tanstack-react-start": "^0.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.35.1",

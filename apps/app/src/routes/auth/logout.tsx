@@ -1,15 +1,10 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
+import { createFileRoute } from '@tanstack/react-router'
 
-const logoutUser = createServerFn({ method: 'POST' }).handler(async () => {
-  const { clearSession } = await import('#/lib/auth.server')
-  await clearSession()
-  throw redirect({ to: '/auth/login' })
-})
+import { signOut } from '@workos/authkit-tanstack-react-start'
 
 export const Route = createFileRoute('/auth/logout')({
-  beforeLoad: async () => {
-    await logoutUser()
+  loader: async () => {
+    await signOut({ data: { returnTo: '/auth/login' } })
   },
   component: () => null,
 })
