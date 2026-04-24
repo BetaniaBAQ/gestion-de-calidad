@@ -2,17 +2,22 @@
   "name": "cualia",
   "private": true,
   "packageManager": "pnpm@10.33.0",
+  "bin": {
+    "cualia": "./bin/cualia"
+  },
   "scripts": {
     "dev": "turbo dev",
+    "dev:portal": "turbo dev --filter=@cualia/portal",
+    "dev:admin": "turbo dev --filter=@cualia/admin",
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "turbo format",
     "check": "turbo check",
     "test": "turbo test",
+    "typecheck": "turbo typecheck",
     "prepare": "husky",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
-    "changelog:all": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
-    "seed:tenant": "node scripts/seed-tenant.mjs"
+    "changelog:all": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",

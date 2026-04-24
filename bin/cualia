@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CONVEX_DIR="$ROOT/packages/convex"
+
+red()   { printf '\033[0;31m%s\033[0m\n' "$*"; }
+green() { printf '\033[0;32m%s\033[0m\n' "$*"; }
+dim()   { printf '\033[2m%s\033[0m\n' "$*"; }
+
+usage() {
+  cat <<EOF
+$(green "cualia") — CLI para el monorepo Cualia SGC
+
+$(green "Desarrollo")
+  dev              Arranca portal + admin + convex en paralelo
+  dev:portal       Solo el portal SGC (puerto 3000)
+  dev:admin        Solo el admin panel (puerto 3001)
+  dev:db           Solo Convex dev (watch mode)
+
+$(green "Base de datos (Convex)")
+  db:seed          Ejecuta seed de datos de prueba
+  db:deploy        Deploy a producción
+  db:run <fn>      Ejecuta una función: db:run tenants:listAll '{}'
+  db:dashboard     Abre el dashboard de Convex
+
+$(green "Build & CI")
+  build            Build de todas las apps
+  typecheck        Type check de todo el monorepo
+  check            Lint + format de todo el monorepo
+
+EOF
+}
+
+err() { red "Error: $*" >&2; exit 1; }
+
+case "${1:-help}" in
+  dev)           cd "$ROOT" && pnpm dev ;;
+  dev:portal)    cd "$ROOT" && pnpm turbo dev --filter=@cualia/portal ;;
+  dev:admin)     cd "$ROOT" && pnpm turbo dev --filter=@cualia/admin ;;
+  dev:db)        cd "$CONVEX_DIR" && npx convex dev ;;
+
+  db:seed)       cd "$CONVEX_DIR" && npx convex run seed:seedBetania '{}' ;;
+  db:deploy)     cd "$CONVEX_DIR" && npx convex deploy ;;
+  db:run)        shift; cd "$CONVEX_DIR" && npx convex run "$@" ;;
+  db:dashboard)  cd "$CONVEX_DIR" && npx convex dashboard ;;
+
+  build)         cd "$ROOT" && pnpm build ;;
+  typecheck)     cd "$ROOT" && pnpm turbo typecheck ;;
+  check)         cd "$ROOT" && pnpm turbo check ;;
+
+  help|--help|-h) usage ;;
+  *) err "Comando desconocido: $1. Usa 'cualia help' para ver opciones." ;;
+esac

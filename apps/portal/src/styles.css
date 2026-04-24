@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/inter';
+@import '@cualia/ui/globals.css';
+
+@source '../../../packages/ui/src';
+
+@custom-variant dark (&:is(.dark *));
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ─── Betania SGC Theme — always dark navy/teal ─────────────────────────── */
+:root {
+  --sand: #1a2744;
+  --foam: #131f35;
+  --bg-base: #0d1626;
+  --hero-a: rgba(78, 205, 196, 0.18);
+  --hero-b: rgba(122, 155, 190, 0.12);
+  --background: #0d1626;
+  --foreground: #eef4fb;
+  --card: #131f35;
+  --card-foreground: #eef4fb;
+  --popover: #131f35;
+  --popover-foreground: #eef4fb;
+  --primary: #4ecdc4;
+  --primary-foreground: #0d1626;
+  --secondary: #1a2744;
+  --secondary-foreground: #eef4fb;
+  --muted: #1a2744;
+  --muted-foreground: #7a9bbe;
+  --accent: #1a2744;
+  --accent-foreground: #4ecdc4;
+  --destructive: #ff6b6b;
+  --destructive-foreground: #0d1626;
+  --border: #1e2f4a;
+  --input: #1a2744;
+  --ring: #4ecdc4;
+  --radius: 0.5rem;
+  --sidebar: #0d1626;
+  --sidebar-foreground: #eef4fb;
+  --sidebar-primary: #4ecdc4;
+  --sidebar-primary-foreground: #0d1626;
+  --sidebar-accent: #1a2744;
+  --sidebar-accent-foreground: #eef4fb;
+  --sidebar-border: #1e2f4a;
+  --sidebar-ring: #4ecdc4;
+}
+
+.dark {
+  --background: #0d1626;
+  --foreground: #eef4fb;
+  --card: #131f35;
+  --card-foreground: #eef4fb;
+  --popover: #131f35;
+  --popover-foreground: #eef4fb;
+  --primary: #4ecdc4;
+  --primary-foreground: #0d1626;
+  --secondary: #1a2744;
+  --secondary-foreground: #eef4fb;
+  --muted: #1a2744;
+  --muted-foreground: #7a9bbe;
+  --accent: #1a2744;
+  --accent-foreground: #4ecdc4;
+  --destructive: #ff6b6b;
+  --destructive-foreground: #0d1626;
+  --border: #1e2f4a;
+  --input: #1a2744;
+  --ring: #4ecdc4;
+  --sidebar: #0d1626;
+  --sidebar-foreground: #eef4fb;
+  --sidebar-primary: #4ecdc4;
+  --sidebar-primary-foreground: #0d1626;
+  --sidebar-accent: #1a2744;
+  --sidebar-accent-foreground: #eef4fb;
+  --sidebar-border: #1e2f4a;
+  --sidebar-ring: #4ecdc4;
+}
+
+/* ─── App body ─────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: #0d1626;
+  background:
+    radial-gradient(
+      1100px 620px at -8% -10%,
+      rgba(30, 47, 74, 0.85),
+      transparent 58%
+    ),
+    radial-gradient(
+      1050px 620px at 112% -12%,
+      rgba(26, 39, 68, 0.75),
+      transparent 62%
+    ),
+    radial-gradient(
+      720px 380px at 50% 115%,
+      rgba(19, 31, 53, 0.9),
+      transparent 68%
+    ),
+    linear-gradient(180deg, #131f35 0%, #101a2e 44%, #0d1626 100%);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(30, 47, 74, 0.45), transparent 34%),
+    radial-gradient(circle at 78% 26%, rgba(26, 39, 68, 0.4), transparent 42%),
+    radial-gradient(circle at 42% 82%, rgba(19, 31, 53, 0.55), transparent 40%);
+}
