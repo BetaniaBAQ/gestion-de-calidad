@@ -14,17 +14,7 @@ export default defineConfig(({ mode }) => {
     envDir,
     resolve: { tsconfigPaths: true },
     ssr: {
-      noExternal: [
-        '@cualia/convex',
-        '@cualia/ui',
-        'radix-ui',
-        /^@radix-ui\//,
-        'class-variance-authority',
-        'clsx',
-        'tailwind-merge',
-        'lucide-react',
-        '@phosphor-icons/react',
-      ],
+      noExternal: true,
     },
     plugins: [
       tailwindcss(),
