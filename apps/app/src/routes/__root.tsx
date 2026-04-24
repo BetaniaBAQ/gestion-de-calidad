@@ -27,6 +27,7 @@ import {
   Pill,
   PlaySquare,
   Settings,
+  Shield,
   Stethoscope,
   Swords,
   TrendingUp,
@@ -232,6 +233,27 @@ function AppSidebar() {
             ))}
           </SidebarMenu>
         </SidebarGroup>
+        {session?.orgSlug === 'admin' && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administración</SidebarGroupLabel>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Admin">
+                  <Link
+                    to="/admin/orgs"
+                    activeProps={{
+                      className: 'bg-sidebar-accent text-primary font-medium',
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Shield className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Organizaciones</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border pt-2 gap-3">

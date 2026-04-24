@@ -2,15 +2,13 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 
 const loginFn = createServerFn().handler(async () => {
-  const { getAuth, getSignInUrl } = await import(
-    '@workos/authkit-tanstack-react-start'
-  )
+  const { getAuth, getSignInUrl } =
+    await import('@workos/authkit-tanstack-react-start')
   const { user } = await getAuth()
   if (user) return '/dashboard'
 
-  const { resolveOrgSlug, resolveWorkosOrgId } = await import(
-    '#/lib/auth.server'
-  )
+  const { resolveOrgSlug, resolveWorkosOrgId } =
+    await import('#/lib/auth.server')
   const slug = resolveOrgSlug()
   const orgId = await resolveWorkosOrgId(slug)
 

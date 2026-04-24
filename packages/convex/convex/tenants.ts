@@ -2,6 +2,23 @@ import { action, mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 import { api } from './_generated/api'
 
+// Lista todos los tenants — solo para admin (verifica CUALIA_ADMIN_ORG_ID)
+export const listAll = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Unauthenticated')
+    const callerOrg =
+      (identity as Record<string, unknown>).org_id ??
+      (identity as Record<string, unknown>).organizationId
+    const adminOrgId = process.env.CUALIA_ADMIN_ORG_ID
+    if (!adminOrgId || callerOrg !== adminOrgId) {
+      throw new Error('Forbidden: admin only')
+    }
+    return ctx.db.query('tenants').collect()
+  },
+})
+
 // Busca un tenant por su slug (e.g. "betania")
 // Usado en el callback de auth para resolver el orgId
 export const getBySlug = query({
