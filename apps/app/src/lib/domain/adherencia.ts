@@ -1,10 +1,10 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import { useConfigStore } from '#/lib/stores/config.store'
 import { GPCS0 } from '#/lib/data'
 import type { GPC } from '#/lib/types'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type AdherenciaId = GenericId<'adherencia'>
 
@@ -26,8 +26,7 @@ export type AdherenciaSGC = {
 // ─── Hooks internos ─────────────────────────────────────────────────────────
 
 function useAdherenciasRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.adherencia.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.adherencia.listByOrg, useAuthArgs()) ?? []
 }
 
 function projectAdherencia(

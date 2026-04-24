@@ -40,7 +40,6 @@ import {
   useUpdatePqrs,
 } from '#/lib/domain/pqrs'
 import type { PqrsSGC } from '#/lib/domain/pqrs'
-import { useOrgId } from '#/lib/org-context'
 
 export const Route = createFileRoute('/procesos')({
   component: ProcesosPage,
@@ -259,7 +258,6 @@ function PqrsForm({
 }
 
 function ProcesosPage() {
-  const orgId = useOrgId()
   const stats = usePqrsStats()
   const adh = useAdherenciaPromedio()
   const pqrs = usePqrsTodas()
@@ -274,7 +272,7 @@ function ProcesosPage() {
 
   async function handleSave(data: PqrsFormData) {
     const sede = sedes.find((s) => s.codigo === data.sede)
-    if (!orgId || !sede) return
+    if (!sede) return
     if (dialog?.mode === 'edit') {
       await updatePqrs({
         id: dialog.pqr._id,
@@ -293,7 +291,6 @@ function ProcesosPage() {
       })
     } else {
       await createPqrs({
-        orgId,
         sedeId: sede._id,
         sedeCodigo: data.sede,
         tipo: data.tipo,

@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type AuditoriaId = GenericId<'pamec_auditorias'>
 type AccionId = GenericId<'pamec_acciones'>
@@ -50,15 +50,11 @@ export type AccionSGC = {
 // ─── Hooks internos ─────────────────────────────────────────────────────────
 
 function useAuditoriasRaw() {
-  const orgId = useOrgId()
-  return (
-    useQuery(api.pamec.listAuditoriasByOrg, orgId ? { orgId } : 'skip') ?? []
-  )
+  return useQuery(api.pamec.listAuditoriasByOrg, useAuthArgs()) ?? []
 }
 
 function useAccionesRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.pamec.listAccionesByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.pamec.listAccionesByOrg, useAuthArgs()) ?? []
 }
 
 function projectAuditoria(

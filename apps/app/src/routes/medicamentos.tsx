@@ -47,7 +47,6 @@ import type {
   MedicamentoSGC,
   AlertaSanitariaSGC,
 } from '#/lib/domain/medicamentos'
-import { useOrgId } from '#/lib/org-context'
 import { diasHasta } from '#/lib/utils-sgc'
 
 export const Route = createFileRoute('/medicamentos')({
@@ -431,7 +430,6 @@ function AlertaForm({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function MedicamentosPage() {
-  const orgId = useOrgId()
   const alertas = useAlertasSanitarias()
   const pctAccion = usePctConAccion()
   const createAlerta = useCreateAlerta()
@@ -477,7 +475,7 @@ function MedicamentosPage() {
 
   async function handleMedSave(data: MedFormData) {
     const sede = sedes.find((s) => s.codigo === data.sede)
-    if (!orgId || !sede) return
+    if (!sede) return
     if (medDialog?.mode === 'edit') {
       await updateMedicamento({
         id: medDialog.med._id,
@@ -498,7 +496,6 @@ function MedicamentosPage() {
       })
     } else {
       await createMedicamento({
-        orgId,
         sedeId: sede._id,
         sedeCodigo: data.sede,
         nombre: data.nombre,
@@ -519,7 +516,6 @@ function MedicamentosPage() {
   }
 
   async function handleAlertaSave(data: AlertaFormData) {
-    if (!orgId) return
     if (alertaDialog?.mode === 'edit') {
       await updateAlerta({
         id: alertaDialog.alerta._id,
@@ -532,7 +528,6 @@ function MedicamentosPage() {
       })
     } else {
       await createAlerta({
-        orgId,
         fecha: data.fecha,
         tipo: data.tipo,
         fuente: data.fuente,

@@ -1,9 +1,9 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import { diasHasta } from '#/lib/utils-sgc'
 import type { GenericId } from 'convex/values'
 import type { DocumentoTipo, DocumentoEstado } from '#/lib/types'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type Id<T extends string> = GenericId<T>
 
@@ -39,8 +39,7 @@ function project(doc: ReturnType<typeof useDocumentosRaw>[number]): DocSGC {
 
 // Hook interno — devuelve los docs crudos de Convex
 function useDocumentosRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.documentos.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.documentos.listByOrg, useAuthArgs()) ?? []
 }
 
 export function useDocumentos(): DocSGC[] {
@@ -52,13 +51,12 @@ export function useDocumento(id: string | undefined): DocSGC | undefined {
 }
 
 export function useCreateDocumento() {
-  const orgId = useOrgId()
   const create = useMutation(api.documentos.create)
   return (
     args: Omit<DocSGC, '_id' | 'id' | 'responsable'> & { responsable: string }
   ) => {
     const { responsable, id: _id, ...rest } = args as any
-    return create({ orgId, elaboradoPor: responsable, ...rest })
+    return create({ elaboradoPor: responsable, ...rest })
   }
 }
 

@@ -3,6 +3,7 @@ import { Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '@cualia/convex'
+import { useAuthArgs } from '#/lib/convex-helpers'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
@@ -39,7 +40,6 @@ import {
   useUpdateCargo,
 } from '#/lib/domain/personal'
 import type { CargoSGC } from '#/lib/domain/personal'
-import { useOrgId } from '#/lib/org-context'
 import type { Cargo, Rol } from '#/lib/types'
 import type { GenericId } from 'convex/values'
 
@@ -330,7 +330,6 @@ function CargoForm({
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
 function SedesTab() {
-  const orgId = useOrgId()
   const sedes = useSedes()
   const createSede = useMutation(api.sedes.create)
   const updateSede = useMutation(api.sedes.update)
@@ -355,7 +354,6 @@ function SedesTab() {
       })
     } else {
       await createSede({
-        orgId,
         codigo: data.codigo,
         nombre: data.nombre,
         ciudad: data.ciudad,
@@ -466,7 +464,6 @@ function SedesTab() {
 }
 
 function CargosTab() {
-  const orgId = useOrgId()
   const cargos = useCargos()
   const createCargo = useCreateCargo()
   const updateCargoMutation = useUpdateCargo()
@@ -475,7 +472,6 @@ function CargosTab() {
   >(null)
 
   async function handleSave(c: Cargo) {
-    if (!orgId) return
     if (dialog?.mode === 'edit') {
       await updateCargoMutation({
         id: dialog.cargo._id,
@@ -487,7 +483,6 @@ function CargosTab() {
       })
     } else {
       await createCargo({
-        orgId,
         codigo: c.nombre.toUpperCase().replace(/\s+/g, '_').slice(0, 20),
         nombre: c.nombre,
         tipo: c.tipo ?? 'asistencial',
@@ -571,10 +566,8 @@ function CargosTab() {
 }
 
 function UsuariosTab() {
-  const orgId = useOrgId()
   const sedes = useSedes()
-  const usuarios =
-    useQuery(api.usuarios.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  const usuarios = useQuery(api.usuarios.listByOrg, useAuthArgs()) ?? []
   const updateUsuario = useMutation(api.usuarios.update)
 
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -790,17 +783,15 @@ function ConfigPage() {
 }
 
 function DatosInicialesTab() {
-  const orgId = useOrgId()
   const seed = useMutation(api.seed.seedBetania)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<string | null>(null)
 
   async function handleSeed() {
-    if (!orgId) return
     setRunning(true)
     setResult(null)
     try {
-      const res = await seed({ orgId })
+      const res = await seed({})
       const lines = Object.entries(res)
         .map(([k, v]) => `${k}: ${v}`)
         .join(' · ')
@@ -823,7 +814,7 @@ function DatosInicialesTab() {
             Carga capacitaciones normativas, indicadores, documentos y datos de
             muestra para Betania. Los registros existentes no se duplican.
           </p>
-          <Button size="sm" onClick={handleSeed} disabled={running || !orgId}>
+          <Button size="sm" onClick={handleSeed} disabled={running}>
             {running ? 'Cargando…' : 'Ejecutar seed'}
           </Button>
         </div>

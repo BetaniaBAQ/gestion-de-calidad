@@ -1,13 +1,12 @@
 import { useQuery } from 'convex/react'
 import { api } from '@cualia/convex'
 import { useConfigStore } from '#/lib/stores/config.store'
-import { useOrgId } from '#/lib/org-context'
 import { scoreGlobal } from '#/lib/utils-sgc'
 import { usePersonasTodas, useCargos } from '#/lib/domain/personal'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 export function useSedes() {
-  const orgId = useOrgId()
-  return useQuery(api.sedes.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.sedes.listByOrg, useAuthArgs()) ?? []
 }
 
 export function useSedesActivas() {

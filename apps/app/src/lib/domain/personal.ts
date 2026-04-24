@@ -1,9 +1,9 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import { useConfigStore } from '#/lib/stores/config.store'
 import { REQUISITOS_POR_CARGO } from '#/lib/data-catalogs'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 import type {
   EstadoRequisito,
   RequisitoDef,
@@ -47,13 +47,11 @@ export type CargoSGC = {
 // ─── Hooks internos ─────────────────────────────────────────────────────────
 
 function usePersonalRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.personal.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.personal.listByOrg, useAuthArgs()) ?? []
 }
 
 function useCargosRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.cargos.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.cargos.listByOrg, useAuthArgs()) ?? []
 }
 
 function projectPersona(

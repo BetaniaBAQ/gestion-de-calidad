@@ -38,7 +38,6 @@ import {
   useRemoveEquipo,
 } from '#/lib/domain/equipos'
 import type { EquipoSGC } from '#/lib/domain/equipos'
-import { useOrgId } from '#/lib/org-context'
 
 export const Route = createFileRoute('/equipos')({
   component: EquiposPage,
@@ -276,7 +275,6 @@ function EquipoForm({
 }
 
 function EquiposPage() {
-  const orgId = useOrgId()
   const equipos = useEquipos()
   const sedes = useSedes()
   const vistaCompleta = useVistaCompleta()
@@ -303,7 +301,7 @@ function EquiposPage() {
 
   async function handleSave(data: EquipoFormData) {
     const sede = sedes.find((s) => s.codigo === data.sede)
-    if (!orgId || !sede) return
+    if (!sede) return
     if (dialog?.mode === 'edit') {
       await updateEquipo({
         id: dialog.equipo._id,
@@ -324,7 +322,6 @@ function EquiposPage() {
       })
     } else {
       await createEquipo({
-        orgId,
         sedeId: sede._id,
         sedeCodigo: data.sede,
         nombre: data.nombre,

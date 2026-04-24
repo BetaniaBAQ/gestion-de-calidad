@@ -1,8 +1,8 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import { useConfigStore } from '#/lib/stores/config.store'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type MedicamentoId = GenericId<'medicamentos'>
 type SedeId = GenericId<'sedes'>
@@ -41,8 +41,7 @@ export type AlertaSanitariaSGC = {
 // ─── Medicamentos — Convex ───────────────────────────────────────────────────
 
 function useMedicamentosRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.medicamentos.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.medicamentos.listByOrg, useAuthArgs()) ?? []
 }
 
 function projectMedicamento(
@@ -81,10 +80,7 @@ export function useRemoveMedicamento() {
 // ─── Alertas sanitarias — Convex ─────────────────────────────────────────────
 
 function useAlertasRaw() {
-  const orgId = useOrgId()
-  return (
-    useQuery(api.alertas_sanitarias.listByOrg, orgId ? { orgId } : 'skip') ?? []
-  )
+  return useQuery(api.alertas_sanitarias.listByOrg, useAuthArgs()) ?? []
 }
 
 function projectAlerta(

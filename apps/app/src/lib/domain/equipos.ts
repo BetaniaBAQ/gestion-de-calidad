@@ -1,9 +1,9 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import { useConfigStore } from '#/lib/stores/config.store'
 import { diasHasta } from '#/lib/utils-sgc'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type EquipoId = GenericId<'equipos'>
 type SedeId = GenericId<'sedes'>
@@ -31,8 +31,7 @@ export type EquipoSGC = {
 // ─── Hooks internos ─────────────────────────────────────────────────────────
 
 function useEquiposRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.equipos.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.equipos.listByOrg, useAuthArgs()) ?? []
 }
 
 function projectEquipo(

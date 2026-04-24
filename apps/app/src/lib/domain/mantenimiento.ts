@@ -1,8 +1,8 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import { useConfigStore } from '#/lib/stores/config.store'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type MantenimientoId = GenericId<'mantenimientos'>
 type SedeId = GenericId<'sedes'>
@@ -39,10 +39,7 @@ export type MantenimientoSGC = {
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
 function useMantenimientosRaw() {
-  const orgId = useOrgId()
-  return (
-    useQuery(api.mantenimientos.listByOrg, orgId ? { orgId } : 'skip') ?? []
-  )
+  return useQuery(api.mantenimientos.listByOrg, useAuthArgs()) ?? []
 }
 
 function project(

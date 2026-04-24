@@ -1,8 +1,8 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import { useConfigStore } from '#/lib/stores/config.store'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type PqrsId = GenericId<'pqrs'>
 type SedeId = GenericId<'sedes'>
@@ -27,8 +27,7 @@ export type PqrsSGC = {
 // ─── Hooks internos ─────────────────────────────────────────────────────────
 
 function usePqrsRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.pqrs.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.pqrs.listByOrg, useAuthArgs()) ?? []
 }
 
 function projectPqr(doc: ReturnType<typeof usePqrsRaw>[number]): PqrsSGC {

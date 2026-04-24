@@ -28,7 +28,6 @@ import {
   useResponderAuditoria,
   useSetStep,
 } from '#/lib/domain/auditoriaEnVivo'
-import { useOrgId } from '#/lib/org-context'
 import type { AuditoriaItemVivo } from '#/lib/types'
 
 export const Route = createFileRoute('/auditoria')({
@@ -144,7 +143,6 @@ function AuditoriaWizard() {
   const finalizar = useFinalizarAuditoria()
   const descartar = useDescartarAuditoria()
   const sedes = useSedes()
-  const orgId = useOrgId()
   const createAuditoria = useMutation(api.pamec.createAuditoria)
 
   const step = enCurso.currentStep
@@ -270,7 +268,6 @@ function AuditoriaWizard() {
                   variant="default"
                   onClick={async () => {
                     guardar()
-                    if (!orgId) return
                     const sedeDoc = sedes.find(
                       (s) => s.codigo === enCurso.sedeId
                     )
@@ -290,7 +287,6 @@ function AuditoriaWizard() {
                         }
                       })
                     await createAuditoria({
-                      orgId,
                       sedeId: sedeDoc._id,
                       sedeCodigo: sedeDoc.codigo,
                       tipo: 'interna',

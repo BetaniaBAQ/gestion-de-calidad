@@ -1,5 +1,6 @@
 import { mutation } from './_generated/server'
 import { v } from 'convex/values'
+import { getOrgId } from './lib/auth'
 
 // ─── Datos semilla — Instituto Oncohematológico Betania ───────────────────────
 
@@ -825,8 +826,9 @@ const CAPACITACIONES_NORMATIVAS_SEED = [
 // ─── Seed mutation ────────────────────────────────────────────────────────────
 
 export const seedBetania = mutation({
-  args: { orgId: v.string() },
-  handler: async (ctx, { orgId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const orgId = await getOrgId(ctx)
     const results = {
       tenant: 'skipped' as 'created' | 'skipped',
       sedes: 0,

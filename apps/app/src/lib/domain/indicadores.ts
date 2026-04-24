@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type IndicadorId = GenericId<'indicadores'>
 type MedicionId = GenericId<'mediciones_indicadores'>
@@ -38,16 +38,11 @@ export type MedicionSGC = {
 // ─── Hooks internos ─────────────────────────────────────────────────────────
 
 function useIndicadoresRaw() {
-  const orgId = useOrgId()
-  return useQuery(api.indicadores.listByOrg, orgId ? { orgId } : 'skip') ?? []
+  return useQuery(api.indicadores.listByOrg, useAuthArgs()) ?? []
 }
 
 function useMedicionesRaw() {
-  const orgId = useOrgId()
-  return (
-    useQuery(api.indicadores.listMedicionesByOrg, orgId ? { orgId } : 'skip') ??
-    []
-  )
+  return useQuery(api.indicadores.listMedicionesByOrg, useAuthArgs()) ?? []
 }
 
 function projectIndicador(
@@ -109,5 +104,5 @@ export function useIndicadoresPorModulo(): Record<string, IndicadorSGC[]> {
     bucket.push(i)
     acc[i.proceso] = bucket
     return acc
-  }, {})
+  }, useAuthArgs())
 }

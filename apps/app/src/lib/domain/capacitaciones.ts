@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { useOrgId } from '#/lib/org-context'
 import type { GenericId } from 'convex/values'
+import { useAuthArgs } from '#/lib/convex-helpers'
 
 type CapId = GenericId<'capacitaciones_programadas'>
 
@@ -19,8 +19,7 @@ export type CapacitacionSGC = {
 }
 
 export function useCapacitaciones(): CapacitacionSGC[] {
-  const orgId = useOrgId()
-  return (useQuery(api.capacitaciones.listByOrg, orgId ? { orgId } : 'skip') ??
+  return (useQuery(api.capacitaciones.listByOrg, useAuthArgs()) ??
     []) as CapacitacionSGC[]
 }
 

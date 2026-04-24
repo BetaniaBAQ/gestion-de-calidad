@@ -55,7 +55,6 @@ import {
   useUpdatePersona,
 } from '#/lib/domain/personal'
 import type { CargoSGC, PersonaSGC } from '#/lib/domain/personal'
-import { useOrgId } from '#/lib/org-context'
 import { useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
 import type {
@@ -647,7 +646,6 @@ function PersonaFormDialog({
   cargos: CargoSGC[]
   sedes: ReturnType<typeof useSedes>
 }) {
-  const orgId = useOrgId()
   const createPersona = useCreatePersona()
   const updatePersona = useUpdatePersona()
 
@@ -703,7 +701,6 @@ function PersonaFormDialog({
         })
       } else {
         await createPersona({
-          orgId,
           nombre: form.nombre,
           cedula: form.cedula,
           cargoId: form.cargoId as any,
@@ -931,7 +928,6 @@ function SuficienciaTab({
 // ─── Cronograma tab (CRUD completo) ───────────────────────────────────────────
 
 function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
-  const orgId = useOrgId()
   const [formOpen, setFormOpen] = useState(false)
   const [editCap, setEditCap] = useState<CapacitacionSGC | null>(null)
   const [seeding, setSeeding] = useState(false)
@@ -942,10 +938,9 @@ function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
   const pct = caps.length > 0 ? Math.round((ejec / caps.length) * 1000) / 10 : 0
 
   async function handleSeed() {
-    if (!orgId) return
     setSeeding(true)
     try {
-      await seed({ orgId })
+      await seed({})
     } finally {
       setSeeding(false)
     }
@@ -1107,7 +1102,6 @@ function CapacitacionFormDialog({
   onOpenChange: (o: boolean) => void
   cap: CapacitacionSGC | null
 }) {
-  const orgId = useOrgId()
   const create = useCreateCapacitacion()
   const update = useUpdateCapacitacion()
 
@@ -1159,7 +1153,6 @@ function CapacitacionFormDialog({
         })
       } else {
         await create({
-          orgId,
           nombre: form.nombre,
           area: form.area,
           fechaObjetivo: form.fechaObjetivo,

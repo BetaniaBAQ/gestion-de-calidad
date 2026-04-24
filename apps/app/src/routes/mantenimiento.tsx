@@ -30,7 +30,6 @@ import {
 } from '#/components/ui/table'
 import { Textarea } from '#/components/ui/textarea'
 import { useSedes } from '#/lib/domain/config'
-import { useOrgId } from '#/lib/org-context'
 import {
   useMantenimientosTodos,
   usePctCerradas,
@@ -280,7 +279,6 @@ function MantenimientoPage() {
   const all = useMantenimientosTodos()
   const sedes = useSedes()
   const pctCerradas = usePctCerradas()
-  const orgId = useOrgId()
   const createMantenimiento = useCreateMantenimiento()
   const updateMantenimiento = useUpdateMantenimiento()
   const removeMantenimiento = useRemoveMantenimiento()
@@ -311,7 +309,7 @@ function MantenimientoPage() {
 
   async function handleSave(data: MantFormData) {
     const sede = sedes.find((s) => s.codigo === data.sedeCodigo)
-    if (!orgId || !sede) return
+    if (!sede) return
     const codigo = `MNT-${Date.now()}`
     if (dialog?.mode === 'edit') {
       await updateMantenimiento({
@@ -327,7 +325,6 @@ function MantenimientoPage() {
       })
     } else {
       await createMantenimiento({
-        orgId,
         sedeId: sede._id,
         sedeCodigo: data.sedeCodigo,
         codigo,

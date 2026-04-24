@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
 import { api } from '@cualia/convex'
+import { useAuthArgs } from '#/lib/convex-helpers'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
@@ -38,7 +39,7 @@ export const Route = createFileRoute('/admin/orgs')({
 })
 
 function AdminOrgsPage() {
-  const tenants = useQuery(api.tenants.listAll)
+  const tenants = useQuery(api.tenants.listAll, useAuthArgs())
 
   return (
     <div className="space-y-6">

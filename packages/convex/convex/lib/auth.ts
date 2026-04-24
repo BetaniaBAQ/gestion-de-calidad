@@ -9,7 +9,6 @@ export async function getOrgId(
   if (!identity) {
     throw new Error('Unauthenticated')
   }
-  // WorkOS pone el org_id en el claim custom del JWT cuando la sesión es org-scoped
   const orgId =
     (identity as Record<string, unknown>).org_id ??
     (identity as Record<string, unknown>).organizationId
