@@ -103,10 +103,20 @@ function AdminOrgsPage() {
   )
 }
 
+function toSlug(str: string) {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 function CreateOrgDialog() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [slugManual, setSlugManual] = useState(false)
   const [email, setEmail] = useState('')
   const [plan, setPlan] = useState<'trial' | 'pro' | 'enterprise'>('trial')
   const [loading, setLoading] = useState(false)
@@ -133,6 +143,7 @@ function CreateOrgDialog() {
   const reset = () => {
     setName('')
     setSlug('')
+    setSlugManual(false)
     setEmail('')
     setPlan('trial')
     setResult(null)
@@ -195,7 +206,10 @@ function CreateOrgDialog() {
                 <Input
                   id="name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (!slugManual) setSlug(toSlug(e.target.value))
+                  }}
                   placeholder="Instituto Oncohematológico Betania"
                   required
                 />
@@ -205,11 +219,10 @@ function CreateOrgDialog() {
                 <Input
                   id="slug"
                   value={slug}
-                  onChange={(e) =>
-                    setSlug(
-                      e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')
-                    )
-                  }
+                  onChange={(e) => {
+                    setSlugManual(true)
+                    setSlug(toSlug(e.target.value))
+                  }}
                   placeholder="betania"
                   required
                 />
