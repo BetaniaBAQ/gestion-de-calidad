@@ -5,7 +5,20 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".output/**", "dist/**"]
+      "outputs": [".output/**", ".vercel/output/**", "dist/**", "convex/_generated/**"],
+      "env": [
+        "CONVEX_DEPLOYMENT",
+        "VITE_CONVEX_URL",
+        "VITE_CONVEX_SITE",
+        "VITE_WORKOS_CLIENT_ID",
+        "WORKOS_API_KEY",
+        "WORKOS_CLIENT_ID",
+        "WORKOS_REDIRECT_URI",
+        "WORKOS_COOKIE_SECRET",
+        "WORKOS_COOKIE_PASSWORD",
+        "DEV_ORG_SLUG",
+        "CUALIA_ADMIN_ORG_ID"
+      ]
     },
     "dev": {
       "cache": false,
