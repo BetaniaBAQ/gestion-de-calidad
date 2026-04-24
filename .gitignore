@@ -8,7 +8,7 @@ dist/
 .vercel/
 .turbo/
 apps/*/src/routeTree.gen.ts
-packages/convex/convex/_generated/
+# packages/convex/convex/_generated/ — committed for CI builds (no codegen in Vercel)
 packages/convex/convex.json
 
 # graphify output

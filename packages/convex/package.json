@@ -8,7 +8,6 @@
     "./schema": "./convex/schema.ts"
   },
   "scripts": {
-    "build": "convex codegen",
     "dev": "convex dev",
     "deploy": "convex deploy"
   },
