@@ -940,38 +940,22 @@ function SuficienciaTab({
 function CronogramaTab({ caps }: { caps: CapacitacionSGC[] }) {
   const [formOpen, setFormOpen] = useState(false)
   const [editCap, setEditCap] = useState<CapacitacionSGC | null>(null)
-  const [seeding, setSeeding] = useState(false)
   const remove = useRemoveCapacitacion()
-  const seed = useMutation(api.seed.seedBetania)
 
   const ejec = caps.filter((c) => c.estado === 'ejecutada').length
   const pct = caps.length > 0 ? Math.round((ejec / caps.length) * 1000) / 10 : 0
-
-  async function handleSeed() {
-    setSeeding(true)
-    try {
-      await seed({})
-    } finally {
-      setSeeding(false)
-    }
-  }
 
   return (
     <div className="space-y-4">
       {caps.length === 0 && (
         <div className="rounded-lg border border-dashed border-border p-6 text-center space-y-3">
           <p className="text-sm text-muted-foreground">
-            Sin capacitaciones programadas. Carga las normativas requeridas para
-            una IPS oncológica.
+            Sin capacitaciones programadas. Ejecuta{' '}
+            <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+              ./bin/cualia db:seed
+            </code>{' '}
+            para cargar datos de muestra.
           </p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleSeed}
-            disabled={seeding}
-          >
-            {seeding ? 'Cargando…' : 'Cargar capacitaciones normativas'}
-          </Button>
         </div>
       )}
       <div className="flex items-center justify-between">

@@ -40,7 +40,10 @@ case "${1:-help}" in
   dev:admin)     cd "$ROOT" && pnpm turbo dev --filter=@cualia/admin ;;
   dev:db)        cd "$CONVEX_DIR" && npx convex dev ;;
 
-  db:seed)       cd "$CONVEX_DIR" && npx convex run seed:seedBetania '{}' ;;
+  db:seed)
+    shift
+    ORG_ID="${1:?Error: falta orgId. Uso: cualia db:seed <orgId>}"
+    cd "$CONVEX_DIR" && npx convex run --no-push seed:seedBetania "{\"orgId\":\"$ORG_ID\"}" ;;
   db:deploy)     cd "$CONVEX_DIR" && npx convex deploy ;;
   db:run)        shift; cd "$CONVEX_DIR" && npx convex run "$@" ;;
   db:dashboard)  cd "$CONVEX_DIR" && npx convex dashboard ;;

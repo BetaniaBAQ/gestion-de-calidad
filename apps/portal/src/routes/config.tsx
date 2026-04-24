@@ -788,26 +788,6 @@ function ConfigPage() {
 }
 
 function DatosInicialesTab() {
-  const seed = useMutation(api.seed.seedBetania)
-  const [running, setRunning] = useState(false)
-  const [result, setResult] = useState<string | null>(null)
-
-  async function handleSeed() {
-    setRunning(true)
-    setResult(null)
-    try {
-      const res = await seed({})
-      const lines = Object.entries(res)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(' · ')
-      setResult(`Completado — ${lines}`)
-    } catch (e) {
-      setResult(`Error: ${e instanceof Error ? e.message : String(e)}`)
-    } finally {
-      setRunning(false)
-    }
-  }
-
   return (
     <Card>
       <CardContent className="pt-6 space-y-4">
@@ -816,18 +796,12 @@ function DatosInicialesTab() {
             Cargar datos normativos de demostración
           </p>
           <p className="text-xs text-muted-foreground mb-3">
-            Carga capacitaciones normativas, indicadores, documentos y datos de
-            muestra para Betania. Los registros existentes no se duplican.
+            Ejecuta desde CLI:{' '}
+            <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+              ./bin/cualia db:seed
+            </code>
           </p>
-          <Button size="sm" onClick={handleSeed} disabled={running}>
-            {running ? 'Cargando…' : 'Ejecutar seed'}
-          </Button>
         </div>
-        {result && (
-          <p className="text-xs text-muted-foreground border border-border rounded px-3 py-2 font-mono">
-            {result}
-          </p>
-        )}
       </CardContent>
     </Card>
   )
