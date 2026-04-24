@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
   return {
     envDir,
     ssr: {
-      noExternal: ['@cualia/convex'],
+      noExternal: ['@cualia/convex', '@cualia/ui'],
     },
     plugins: [
       tsconfigPaths({ projects: ['./tsconfig.json'] }),

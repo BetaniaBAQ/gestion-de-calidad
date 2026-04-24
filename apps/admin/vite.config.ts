@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
     envDir,
     resolve: { tsconfigPaths: true },
     ssr: {
-      noExternal: ['@cualia/convex'],
+      noExternal: ['@cualia/convex', '@cualia/ui'],
     },
     plugins: [
       tailwindcss(),
