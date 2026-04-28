@@ -20,7 +20,6 @@ $(green "Desarrollo")
 
 $(green "Base de datos (Convex)")
   db:seed          Ejecuta seed de datos de prueba
-  db:purge         Elimina todos los datos de un orgId huérfano
   db:deploy        Deploy a producción
   db:run <fn>      Ejecuta una función: db:run tenants:listAll '{}'
   db:dashboard     Abre el dashboard de Convex
@@ -45,12 +44,6 @@ case "${1:-help}" in
     shift
     ORG_ID="${1:?Error: falta orgId. Uso: cualia db:seed <orgId>}"
     cd "$CONVEX_DIR" && npx convex run --no-push seed:seedBetania "{\"orgId\":\"$ORG_ID\"}" ;;
-  db:purge)
-    shift
-    ORG_ID="${1:?Error: falta orgId. Uso: cualia db:purge <orgId>}"
-    red "⚠️  Esto eliminará TODOS los datos con orgId=\"$ORG_ID\". Ctrl+C para cancelar."
-    sleep 3
-    cd "$CONVEX_DIR" && npx convex run --no-push seed:purgeOrg "{\"orgId\":\"$ORG_ID\"}" ;;
   db:deploy)     cd "$CONVEX_DIR" && npx convex deploy ;;
   db:run)        shift; cd "$CONVEX_DIR" && npx convex run "$@" ;;
   db:dashboard)  cd "$CONVEX_DIR" && npx convex dashboard ;;
