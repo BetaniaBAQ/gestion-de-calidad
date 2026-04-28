@@ -6,30 +6,18 @@ import { nitro } from 'nitro/vite'
 import { defineConfig, loadEnv } from 'vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
+const isVercel = !!process.env.VERCEL
+
 export default defineConfig(({ mode }) => {
   const envDir = path.resolve(__dirname, '../..')
-
-  // Carga TODAS las vars del .env.local (prefijo '' = sin filtro) en process.env.
-  // Necesario porque Vite solo expone VITE_* al bundle; las vars de servidor
-  // deben estar en process.env para que el SSR las lea.
   const envVars = loadEnv(mode, envDir, '')
   Object.assign(process.env, envVars)
 
   return {
     envDir,
-    ssr: {
-      noExternal: [
-        '@cualia/convex',
-        '@cualia/ui',
-        'radix-ui',
-        /^@radix-ui\//,
-        'class-variance-authority',
-        'clsx',
-        'tailwind-merge',
-        'lucide-react',
-        '@phosphor-icons/react',
-      ],
-    },
+    ssr: isVercel
+      ? { noExternal: true }
+      : { noExternal: ['@cualia/convex', '@cualia/ui'] },
     plugins: [
       tsconfigPaths({ projects: ['./tsconfig.json'] }),
       tailwindcss(),
