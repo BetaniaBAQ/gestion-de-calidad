@@ -86,9 +86,39 @@ Asegurate de que estos Redirect URIs esten registrados en WorkOS Dashboard → S
 - `http://localhost:3000/api/auth/callback` (portal local)
 - `http://localhost:3001/api/auth/callback` (admin local)
 
-### 5. Configurar variables en Convex
+### 5. Configuracion inicial (solo la primera vez del proyecto)
 
-El backend de Convex necesita sus propias variables de entorno:
+> **Nota:** Si el proyecto ya esta configurado y alguien te invito, salta al paso 7.
+
+Si estas arrancando el proyecto desde cero (no existe org admin ni tenants):
+
+#### a. Crear la org admin en WorkOS
+
+Desde el WorkOS Dashboard → Organizations → Create Organization:
+
+- **Name:** `Cualia`
+- **External ID:** `admin`
+
+Copia el **Organization ID** (ej. `org_01KPY2P7...`) — este es tu `CUALIA_ADMIN_ORG_ID`.
+
+#### b. Agregar tu usuario a la org admin
+
+En WorkOS Dashboard → Organizations → Cualia → Members → Add Member. Agrega tu email.
+
+#### c. Registrar redirect URIs en WorkOS
+
+WorkOS Dashboard → Settings → Redirects. Agrega:
+
+- `http://localhost:3000/api/auth/callback` (portal local)
+- `http://localhost:3001/api/auth/callback` (admin local)
+
+#### d. Configurar Home URL en WorkOS
+
+WorkOS Dashboard → Settings → Home URL → `http://localhost:3000`
+
+(Necesario para que el logout funcione correctamente.)
+
+#### e. Setear env vars en Convex
 
 ```bash
 cd packages/convex
@@ -96,6 +126,25 @@ npx convex env set WORKOS_CLIENT_ID <tu_client_id>
 npx convex env set WORKOS_API_KEY <tu_api_key>
 npx convex env set CUALIA_ADMIN_ORG_ID <org_id_admin>
 ```
+
+#### f. Crear el primer tenant
+
+Levanta el admin (`./bin/cualia dev:admin`), entra a http://localhost:3001, y desde la UI crea una nueva organizacion (ej. "Betania"). Esto:
+
+1. Crea la Organization en WorkOS con el slug como `external_id`
+2. Envia invitacion al email del owner
+3. Registra el tenant en Convex
+
+#### g. Seed de datos de prueba
+
+```bash
+# Usa el WorkOS Org ID del tenant que acabas de crear
+./bin/cualia db:seed <orgId>
+```
+
+#### h. Configurar DEV_ORG_SLUG
+
+En `.env.local`, cambia `DEV_ORG_SLUG` al slug del tenant que creaste (ej. `betania`). Asi el portal local carga esa org.
 
 ### 6. Levantar el proyecto
 
