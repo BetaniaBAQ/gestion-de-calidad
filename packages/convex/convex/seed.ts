@@ -1085,3 +1085,40 @@ export const seedBetania = internalMutation({
     return results
   },
 })
+
+// ─── Purge: elimina todos los datos de un orgId ───────────────────────────────
+// Uso: ./bin/cualia db:run seed:purgeOrg '{"orgId":"betania"}'
+
+export const purgeOrg = internalMutation({
+  args: { orgId: v.string() },
+  handler: async (ctx, { orgId }) => {
+    const tables = [
+      'sedes',
+      'cargos',
+      'personal',
+      'capacitaciones_programadas',
+      'indicadores',
+      'documentos',
+      'equipos',
+      'mantenimientos',
+      'pqrs',
+      'adherencia',
+      'pamec_auditorias',
+      'pamec_acciones',
+      'tenants',
+      'alertas_sanitarias',
+      'medicamentos',
+    ] as const
+
+    const counts: Record<string, number> = {}
+    for (const table of tables) {
+      const docs = await ctx.db
+        .query(table)
+        .withIndex('by_org', (q) => q.eq('orgId', orgId))
+        .collect()
+      for (const doc of docs) await ctx.db.delete(doc._id)
+      counts[table] = docs.length
+    }
+    return counts
+  },
+})
