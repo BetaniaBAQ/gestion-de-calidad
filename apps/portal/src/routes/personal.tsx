@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import {
+  AlertTriangle,
   ArrowRight,
   Edit2,
   FileText,
@@ -68,6 +69,8 @@ import {
   pendientesValidacion,
   resolveRequisitos,
   useCargos,
+  useAlertasVencimiento,
+  useCountAlertasVencimiento,
   useCountPorValidar,
   useCreatePersona,
   usePendientesValidacion,
@@ -98,6 +101,7 @@ function PersonalPage() {
   const sedes = useSedes()
   const caps = useCapacitaciones()
   const countPorValidar = useCountPorValidar()
+  const countAlertas = useCountAlertasVencimiento()
 
   const [detallePersona, setDetallePersona] = useState<PersonaSGC | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -139,6 +143,17 @@ function PersonalPage() {
         <TabsList>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="suficiencia">Suficiencia TH</TabsTrigger>
+          <TabsTrigger value="alertas" className="gap-1.5">
+            Alertas
+            {countAlertas > 0 && (
+              <Badge
+                variant="destructive"
+                className="h-5 min-w-5 px-1 text-[0.6rem]"
+              >
+                {countAlertas}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="validacion" className="gap-1.5">
             Validación
             {countPorValidar > 0 && (
@@ -182,6 +197,10 @@ function PersonalPage() {
             cargos={cargos}
             sedes={sedes}
           />
+        </TabsContent>
+
+        <TabsContent value="alertas">
+          <AlertasTab />
         </TabsContent>
 
         <TabsContent value="validacion">
@@ -997,6 +1016,133 @@ function SuficienciaTab({
                 </TableCell>
                 <TableCell className="text-center font-medium">
                   {r.total}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Alertas tab ─────────────────────────────────────────────────────────────
+
+function AlertasTab() {
+  const alertas = useAlertasVencimiento()
+
+  const vencidos = alertas.filter((a) => a.estado === 'vencido')
+  const criticos = alertas.filter((a) => a.estado === 'critico')
+  const porVencer = alertas.filter((a) => a.estado === 'por_vencer')
+
+  if (alertas.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-muted-foreground">
+            No hay requisitos próximos a vencer
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {vencidos.length > 0 && (
+        <AlertaGroup titulo="Vencidos" items={vencidos} variant="destructive" />
+      )}
+      {criticos.length > 0 && (
+        <AlertaGroup
+          titulo="Vencen en menos de 30 días"
+          items={criticos}
+          variant="warning"
+        />
+      )}
+      {porVencer.length > 0 && (
+        <AlertaGroup
+          titulo="Vencen en 30-90 días"
+          items={porVencer}
+          variant="info"
+        />
+      )}
+    </div>
+  )
+}
+
+function AlertaGroup({
+  titulo,
+  items,
+  variant,
+}: {
+  titulo: string
+  items: ReturnType<typeof useAlertasVencimiento>
+  variant: 'destructive' | 'warning' | 'info'
+}) {
+  const color =
+    variant === 'destructive'
+      ? 'border-destructive/50 bg-destructive/5'
+      : variant === 'warning'
+        ? 'border-yellow-500/50 bg-yellow-500/5'
+        : 'border-blue-500/30 bg-blue-500/5'
+
+  const iconColor =
+    variant === 'destructive'
+      ? 'text-destructive'
+      : variant === 'warning'
+        ? 'text-yellow-500'
+        : 'text-blue-400'
+
+  return (
+    <Card className={color}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <AlertTriangle className={`h-4 w-4 ${iconColor}`} />
+          {titulo} ({items.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Persona</TableHead>
+              <TableHead>Requisito</TableHead>
+              <TableHead>Vence</TableHead>
+              <TableHead>Días</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((a) => (
+              <TableRow key={`${a.persona._id}-${a.defId}`}>
+                <TableCell>
+                  <div className="font-medium text-sm">{a.persona.nombre}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {a.persona.cargoCodigo} · {a.persona.sedeCodigo}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">{a.nombre}</div>
+                  <div className="text-[0.65rem] text-muted-foreground">
+                    {a.norma}
+                  </div>
+                </TableCell>
+                <TableCell className="text-sm">
+                  {new Date(a.fechaVigencia).toLocaleDateString('es-CO')}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      a.diasRestantes < 0
+                        ? 'destructive'
+                        : a.diasRestantes <= 30
+                          ? 'secondary'
+                          : 'outline'
+                    }
+                  >
+                    {a.diasRestantes < 0
+                      ? `${Math.abs(a.diasRestantes)}d vencido`
+                      : `${a.diasRestantes}d`}
+                  </Badge>
                 </TableCell>
               </TableRow>
             ))}

@@ -216,6 +216,51 @@ export function usePendientesValidacion() {
   )
 }
 
+export type AlertaVencimiento = {
+  persona: PersonaSGC
+  defId: string
+  nombre: string
+  norma: string
+  fechaVigencia: string
+  diasRestantes: number
+  estado: 'vencido' | 'critico' | 'por_vencer'
+}
+
+export function useAlertasVencimiento(): AlertaVencimiento[] {
+  const personas = usePersonasTodas()
+  const hoy = Date.now()
+  const alertas: AlertaVencimiento[] = []
+
+  for (const p of personas) {
+    for (const r of p.requisitos) {
+      if (!r.fechaVigencia || r.estado === 'NO_APLICA') continue
+      const dias = Math.ceil(
+        (new Date(r.fechaVigencia).getTime() - hoy) / (1000 * 60 * 60 * 24)
+      )
+      if (dias > 90) continue
+      const defs = getRequisitosDefsByCargo(p.cargoCodigo)
+      const def = defs.find((d) => d.id === r.defId)
+      alertas.push({
+        persona: p,
+        defId: r.defId,
+        nombre: def?.nombre ?? r.defId,
+        norma: def?.norma ?? '',
+        fechaVigencia: r.fechaVigencia,
+        diasRestantes: dias,
+        estado: dias < 0 ? 'vencido' : dias <= 30 ? 'critico' : 'por_vencer',
+      })
+    }
+  }
+
+  return alertas.sort((a, b) => a.diasRestantes - b.diasRestantes)
+}
+
+export function useCountAlertasVencimiento(): number {
+  return useAlertasVencimiento().filter(
+    (a) => a.estado === 'vencido' || a.estado === 'critico'
+  ).length
+}
+
 // Compatibilidad con código que aún usa useUpsertPersona / useDeletePersona
 export function useDeletePersona() {
   return useMutation(api.personal.remove)
