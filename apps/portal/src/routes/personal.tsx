@@ -1,6 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowRight, Edit2, FileText, Link2, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import {
+  ArrowRight,
+  Edit2,
+  FileText,
+  Link2,
+  Loader2,
+  Plus,
+  Trash2,
+  Upload,
+} from 'lucide-react'
+import { useRef, useState } from 'react'
+import { useUploadThing } from '#/lib/uploadthing-client'
 import { KpiMeta } from '#/components/kpi-meta'
 import { SedePills } from '#/components/sede-pills'
 import { Badge } from '@cualia/ui/components/badge'
@@ -531,14 +541,36 @@ function ReqItemEdit({
 }) {
   const [showUrl, setShowUrl] = useState(false)
   const [urlInput, setUrlInput] = useState(item.fileUrl ?? '')
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const { startUpload } = useUploadThing('requisitoPersonal', {
+    onClientUploadComplete: (res) => {
+      onChange({
+        fileUrl: res[0].ufsUrl,
+        estado: item.estado === 'SIN_CARGAR' ? 'POR_VALIDAR' : item.estado,
+      })
+      setUploading(false)
+    },
+    onUploadError: (err) => {
+      alert(`Error al subir: ${err.message}`)
+      setUploading(false)
+    },
+  })
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    startUpload([file])
+  }
 
   function commitUrl() {
     const url = urlInput.trim()
-    const patch: Partial<RequisitoEstado> = {
+    onChange({
       fileUrl: url || undefined,
       estado: url && item.estado === 'SIN_CARGAR' ? 'POR_VALIDAR' : item.estado,
-    }
-    onChange(patch)
+    })
     setShowUrl(false)
   }
 
@@ -562,6 +594,28 @@ function ReqItemEdit({
               <FileText className="h-2.5 w-2.5" /> Ver doc
             </a>
           )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,image/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="h-7 w-7"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            title="Subir archivo"
+          >
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Upload className="h-3.5 w-3.5" />
+            )}
+          </Button>
           <Button
             type="button"
             size="icon"
@@ -571,7 +625,7 @@ function ReqItemEdit({
               setUrlInput(item.fileUrl ?? '')
               setShowUrl((v) => !v)
             }}
-            title="Enlace al documento"
+            title="Pegar enlace manualmente"
           >
             <Link2 className="h-3.5 w-3.5" />
           </Button>
