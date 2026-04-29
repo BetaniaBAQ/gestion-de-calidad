@@ -79,3 +79,62 @@ export const remove = mutation({
     await ctx.db.delete(id)
   },
 })
+
+export const validarRequisito = mutation({
+  args: {
+    personaId: v.id('personal'),
+    defId: v.string(),
+    fechaVigencia: v.string(),
+    observacion: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Unauthenticated')
+
+    const persona = await ctx.db.get(args.personaId)
+    if (!persona) throw new Error('Persona not found')
+
+    const requisitos = (persona.requisitos ?? []).map((r) =>
+      r.defId === args.defId
+        ? {
+            ...r,
+            estado: 'VIGENTE' as const,
+            fechaVigencia: args.fechaVigencia,
+            observacion: args.observacion ?? r.observacion,
+            validadoPor: identity.subject,
+            validadoEn: Date.now(),
+          }
+        : r
+    )
+    await ctx.db.patch(args.personaId, { requisitos })
+  },
+})
+
+export const rechazarRequisito = mutation({
+  args: {
+    personaId: v.id('personal'),
+    defId: v.string(),
+    observacion: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Unauthenticated')
+
+    const persona = await ctx.db.get(args.personaId)
+    if (!persona) throw new Error('Persona not found')
+
+    const requisitos = (persona.requisitos ?? []).map((r) =>
+      r.defId === args.defId
+        ? {
+            ...r,
+            estado: 'SIN_CARGAR' as const,
+            fileUrl: undefined,
+            observacion: args.observacion,
+            validadoPor: identity.subject,
+            validadoEn: Date.now(),
+          }
+        : r
+    )
+    await ctx.db.patch(args.personaId, { requisitos })
+  },
+})

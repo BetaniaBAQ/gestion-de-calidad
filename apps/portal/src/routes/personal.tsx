@@ -68,7 +68,9 @@ import {
   pendientesValidacion,
   resolveRequisitos,
   useCargos,
+  useCountPorValidar,
   useCreatePersona,
+  usePendientesValidacion,
   usePersonas,
   usePersonasTodas,
   useRemovePersona,
@@ -95,6 +97,7 @@ function PersonalPage() {
   const cargos = useCargos()
   const sedes = useSedes()
   const caps = useCapacitaciones()
+  const countPorValidar = useCountPorValidar()
 
   const [detallePersona, setDetallePersona] = useState<PersonaSGC | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -136,6 +139,17 @@ function PersonalPage() {
         <TabsList>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="suficiencia">Suficiencia TH</TabsTrigger>
+          <TabsTrigger value="validacion" className="gap-1.5">
+            Validación
+            {countPorValidar > 0 && (
+              <Badge
+                variant="destructive"
+                className="h-5 min-w-5 px-1 text-[0.6rem]"
+              >
+                {countPorValidar}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="cronograma">
             Cronograma de capacitaciones
           </TabsTrigger>
@@ -168,6 +182,10 @@ function PersonalPage() {
             cargos={cargos}
             sedes={sedes}
           />
+        </TabsContent>
+
+        <TabsContent value="validacion">
+          <ValidacionTab />
         </TabsContent>
 
         <TabsContent value="cronograma">
@@ -986,6 +1004,225 @@ function SuficienciaTab({
         </Table>
       </CardContent>
     </Card>
+  )
+}
+
+// ─── Validación tab ──────────────────────────────────────────────────────────
+
+function ValidacionTab() {
+  const pendientes = usePendientesValidacion()
+  const validar = useMutation(api.personal.validarRequisito)
+  const rechazar = useMutation(api.personal.rechazarRequisito)
+  const [actionTarget, setActionTarget] = useState<{
+    personaId: string
+    defId: string
+    nombre: string
+    requisito: string
+    action: 'validar' | 'rechazar'
+  } | null>(null)
+  const [fechaVigencia, setFechaVigencia] = useState('')
+  const [observacion, setObservacion] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit() {
+    if (!actionTarget) return
+    setSaving(true)
+    try {
+      if (actionTarget.action === 'validar') {
+        await validar({
+          personaId: actionTarget.personaId as any,
+          defId: actionTarget.defId,
+          fechaVigencia,
+          observacion: observacion || undefined,
+        })
+      } else {
+        await rechazar({
+          personaId: actionTarget.personaId as any,
+          defId: actionTarget.defId,
+          observacion,
+        })
+      }
+      setActionTarget(null)
+      setFechaVigencia('')
+      setObservacion('')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (pendientes.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-muted-foreground">
+            No hay requisitos pendientes de validación
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {pendientes.length} requisito{pendientes.length !== 1 ? 's' : ''}{' '}
+        pendiente{pendientes.length !== 1 ? 's' : ''} de validación
+      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Persona</TableHead>
+            <TableHead>Requisito</TableHead>
+            <TableHead>Documento</TableHead>
+            <TableHead className="w-[180px]">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pendientes.map((p) => (
+            <TableRow key={`${p.persona._id}-${p.defId}`}>
+              <TableCell>
+                <div className="font-medium text-sm">{p.persona.nombre}</div>
+                <div className="text-xs text-muted-foreground">
+                  {p.persona.cargoCodigo} · {p.persona.sedeCodigo}
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="text-sm">{p.nombre}</div>
+                <div className="text-[0.65rem] text-muted-foreground">
+                  {p.norma}
+                </div>
+              </TableCell>
+              <TableCell>
+                {p.fileUrl ? (
+                  <a
+                    href={p.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/20"
+                  >
+                    <FileText className="h-3 w-3" /> Ver doc
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    Sin documento
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-xs"
+                    onClick={() =>
+                      setActionTarget({
+                        personaId: p.persona._id,
+                        defId: p.defId,
+                        nombre: p.persona.nombre,
+                        requisito: p.nombre,
+                        action: 'validar',
+                      })
+                    }
+                  >
+                    Aprobar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 text-xs"
+                    onClick={() =>
+                      setActionTarget({
+                        personaId: p.persona._id,
+                        defId: p.defId,
+                        nombre: p.persona.nombre,
+                        requisito: p.nombre,
+                        action: 'rechazar',
+                      })
+                    }
+                  >
+                    Rechazar
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <Dialog
+        open={!!actionTarget}
+        onOpenChange={(open) => {
+          if (!open) setActionTarget(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {actionTarget?.action === 'validar'
+                ? 'Aprobar requisito'
+                : 'Rechazar requisito'}
+            </DialogTitle>
+            <DialogDescription>
+              {actionTarget?.nombre} — {actionTarget?.requisito}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {actionTarget?.action === 'validar' && (
+              <div className="grid gap-2">
+                <Label htmlFor="vigencia">Fecha de vigencia</Label>
+                <Input
+                  id="vigencia"
+                  type="date"
+                  value={fechaVigencia}
+                  onChange={(e) => setFechaVigencia(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+            <div className="grid gap-2">
+              <Label htmlFor="obs">
+                {actionTarget?.action === 'validar'
+                  ? 'Observación (opcional)'
+                  : 'Motivo del rechazo'}
+              </Label>
+              <Textarea
+                id="obs"
+                value={observacion}
+                onChange={(e) => setObservacion(e.target.value)}
+                placeholder={
+                  actionTarget?.action === 'rechazar'
+                    ? 'Indique el motivo del rechazo...'
+                    : 'Observaciones adicionales...'
+                }
+                required={actionTarget?.action === 'rechazar'}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActionTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant={
+                actionTarget?.action === 'validar' ? 'default' : 'destructive'
+              }
+              onClick={handleSubmit}
+              disabled={
+                saving ||
+                (actionTarget?.action === 'validar' && !fechaVigencia) ||
+                (actionTarget?.action === 'rechazar' && !observacion)
+              }
+            >
+              {saving
+                ? 'Guardando...'
+                : actionTarget?.action === 'validar'
+                  ? 'Aprobar'
+                  : 'Rechazar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
 
