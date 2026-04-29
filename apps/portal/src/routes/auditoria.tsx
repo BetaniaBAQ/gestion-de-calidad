@@ -1,8 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { api } from '@cualia/convex'
-import { AlertTriangle, Camera, Play, Save, Trash2 } from 'lucide-react'
+import { pdf } from '@react-pdf/renderer'
+import {
+  AlertTriangle,
+  Camera,
+  Download,
+  Play,
+  Save,
+  Trash2,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { ActaAuditoriaPDF } from '#/components/reportes/ActaAuditoriaPDF'
+import type { ActaAuditoriaData } from '#/components/reportes/ActaAuditoriaPDF'
 import { Badge } from '@cualia/ui/components/badge'
 import { Button } from '@cualia/ui/components/button'
 import {
@@ -291,6 +301,7 @@ function AuditoriaWizard() {
                           accionCorrectiva: r.observacion,
                         }
                       })
+                    const fechaFin = new Date().toISOString().slice(0, 10)
                     await createAuditoria({
                       sedeId: sedeDoc._id,
                       sedeCodigo: sedeDoc.codigo,
@@ -298,15 +309,67 @@ function AuditoriaWizard() {
                       proceso: 'Auditoría en vivo',
                       auditor: enCurso.auditor,
                       fechaInicio: enCurso.iniciadaEn.slice(0, 10),
-                      fechaFin: new Date().toISOString().slice(0, 10),
+                      fechaFin,
                       estado: 'cerrada',
                       observaciones: `Auditoría generada desde modo en vivo · ${enCurso.respuestas.length}/${items.length} ítems`,
                       hallazgos,
                     })
+
+                    const respondidas = enCurso.respuestas
+                    const cumpleCount = respondidas.filter(
+                      (r) => r.cumple === 'si'
+                    ).length
+                    const noCount = respondidas.filter(
+                      (r) => r.cumple === 'no'
+                    ).length
+                    const naCount = respondidas.filter(
+                      (r) => r.cumple === 'na'
+                    ).length
+                    const aplicables = items.length - naCount
+                    const pctCumplimiento =
+                      aplicables > 0
+                        ? Math.round((cumpleCount / aplicables) * 100)
+                        : 0
+
+                    const actaData: ActaAuditoriaData = {
+                      sede: sedeDoc.codigo,
+                      ciudad: sedeDoc.ciudad,
+                      auditor: enCurso.auditor,
+                      fechaInicio: enCurso.iniciadaEn.slice(0, 10),
+                      fechaFin,
+                      totalItems: items.length,
+                      cumple: cumpleCount,
+                      noCumple: noCount,
+                      na: naCount,
+                      pctCumplimiento,
+                      items: items.map((it) => {
+                        const resp = respondidas.find((r) => r.itemId === it.id)
+                        return {
+                          categoria: it.categoria,
+                          descripcion: it.descripcion,
+                          cumple: resp?.cumple ?? '',
+                          observacion: resp?.observacion,
+                        }
+                      }),
+                      hallazgos: hallazgos.map((h) => ({
+                        id: h.id,
+                        descripcion: h.descripcion,
+                        criterio: h.criterio,
+                        accion: h.accionCorrectiva,
+                      })),
+                    }
+
+                    const blob = await pdf(
+                      <ActaAuditoriaPDF data={actaData} />
+                    ).toBlob()
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `acta-auditoria-${sedeDoc.codigo}-${fechaFin}.pdf`
+                    a.click()
+                    URL.revokeObjectURL(url)
+
                     finalizar()
-                    alert(
-                      'Auditoría finalizada. Los hallazgos se enviaron a PAMEC.'
-                    )
                   }}
                   disabled={!cumple}
                 >
