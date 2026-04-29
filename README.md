@@ -53,6 +53,7 @@ Llena las variables. Necesitas pedir estas credenciales:
 | `WORKOS_CLIENT_ID` | WorkOS Dashboard → Applications | Admin del proyecto |
 | `WORKOS_COOKIE_PASSWORD` | Generar uno nuevo (ver abajo) | Tu lo generas |
 | `CUALIA_ADMIN_ORG_ID` | WorkOS Dashboard → Organizations → Cualia | Admin del proyecto |
+| `UPLOADTHING_TOKEN` | UploadThing Dashboard → API Keys | Admin del proyecto |
 
 Genera tu cookie password:
 
