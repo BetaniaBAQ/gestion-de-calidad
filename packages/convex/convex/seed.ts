@@ -832,6 +832,7 @@ export const seedBetania = internalMutation({
       sedes: 0,
       cargos: 0,
       indicadores: 0,
+      mediciones: 0,
       documentos: 0,
       personal: 0,
       equipos: 0,
@@ -904,6 +905,51 @@ export const seedBetania = internalMutation({
       if (!existing) {
         await ctx.db.insert('indicadores', { orgId, ...ind, activo: true })
         results.indicadores++
+      }
+    }
+
+    // ── 4b. Mediciones de indicadores (6 meses de demo) ─────────────────────
+    const allIndicadores = await ctx.db
+      .query('indicadores')
+      .withIndex('by_org', (q) => q.eq('orgId', orgId))
+      .collect()
+
+    const existingMediciones = await ctx.db
+      .query('mediciones_indicadores')
+      .withIndex('by_org', (q) => q.eq('orgId', orgId))
+      .first()
+
+    if (!existingMediciones && allIndicadores.length > 0) {
+      const periodos = ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04']
+
+      for (const ind of allIndicadores) {
+        const base = ind.unidad === 'días' ? ind.meta * 1.8 : ind.meta * 0.6
+        const target = ind.unidad === 'días' ? ind.meta : ind.meta
+
+        for (let i = 0; i < periodos.length; i++) {
+          const progress = i / (periodos.length - 1)
+          const noise = (Math.sin(i * 3.7 + ind.nombre.length) * 0.08)
+
+          let valor: number
+          if (ind.unidad === 'días') {
+            valor = Math.round((base - (base - target) * progress) * (1 + noise))
+          } else {
+            valor = Math.round((base + (target - base) * progress) * (1 + noise))
+          }
+
+          valor = Math.max(0, Math.min(ind.unidad === 'días' ? 999 : 100, valor))
+
+          await ctx.db.insert('mediciones_indicadores', {
+            orgId,
+            indicadorId: ind._id,
+            periodo: periodos[i],
+            valor,
+            meta: ind.meta,
+            responsable: 'Coord. Calidad',
+            fecha: `${periodos[i]}-28`,
+          })
+          results.mediciones++
+        }
       }
     }
 
