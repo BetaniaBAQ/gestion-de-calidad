@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import {
   AlertTriangle,
   ArrowRight,
+  Download,
   Edit2,
   FileText,
   Link2,
@@ -12,6 +13,9 @@ import {
 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useUploadThing } from '#/lib/uploadthing-client'
+import { pdf } from '@react-pdf/renderer'
+import { ReporteTHPDF } from '#/components/reportes/ReporteTHPDF'
+import type { ReporteTHData } from '#/components/reportes/ReporteTHPDF'
 import { KpiMeta } from '#/components/kpi-meta'
 import { SedePills } from '#/components/sede-pills'
 import { Badge } from '@cualia/ui/components/badge'
@@ -103,9 +107,12 @@ function PersonalPage() {
   const countPorValidar = useCountPorValidar()
   const countAlertas = useCountAlertasVencimiento()
 
+  const alertasVenc = useAlertasVencimiento()
+
   const [detallePersona, setDetallePersona] = useState<PersonaSGC | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editPersona, setEditPersona] = useState<PersonaSGC | null>(null)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
 
   const capsEjec = caps.filter((c) => c.estado === 'ejecutada').length
   const pctCapsEjec =
@@ -137,6 +144,60 @@ function PersonalPage() {
           descripcion="personas registradas"
           meta=""
         />
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={generatingPdf}
+          onClick={async () => {
+            setGeneratingPdf(true)
+            try {
+              const data: ReporteTHData = {
+                institucion: 'Instituto Oncohematológico Betania',
+                sedeNombre: 'Todas las sedes',
+                fechaHoy: new Date().toLocaleDateString('es-CO'),
+                totalPersonal: personasAll.length,
+                pctDocCompleta,
+                pctCapsEjec,
+                countPorValidar,
+                countVencidos: alertasVenc.filter((a) => a.estado === 'vencido')
+                  .length,
+                personal: personasAll.map((p) => ({
+                  nombre: p.nombre,
+                  cedula: p.cedula,
+                  cargo: p.cargoCodigo,
+                  sede: p.sedeCodigo,
+                  completitud: completitudPersona(p),
+                  estado: estadoCompletitud(p),
+                })),
+                alertas: alertasVenc.map((a) => ({
+                  persona: a.persona.nombre,
+                  requisito: a.nombre,
+                  fechaVigencia: new Date(a.fechaVigencia).toLocaleDateString(
+                    'es-CO'
+                  ),
+                  diasRestantes: a.diasRestantes,
+                  urgencia: a.estado,
+                })),
+                suficiencia: [],
+              }
+              const blob = await pdf(<ReporteTHPDF data={data} />).toBlob()
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `reporte-th-${new Date().toISOString().slice(0, 10)}.pdf`
+              a.click()
+              URL.revokeObjectURL(url)
+            } finally {
+              setGeneratingPdf(false)
+            }
+          }}
+        >
+          <Download className="h-4 w-4 mr-1" />
+          {generatingPdf ? 'Generando...' : 'Reporte PDF'}
+        </Button>
       </div>
 
       <Tabs defaultValue="personal">
