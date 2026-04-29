@@ -15,6 +15,7 @@ import type * as capacitaciones from "../capacitaciones.js";
 import type * as cargos from "../cargos.js";
 import type * as documentos from "../documentos.js";
 import type * as equipos from "../equipos.js";
+import type * as eventos_adversos from "../eventos_adversos.js";
 import type * as habilitacion from "../habilitacion.js";
 import type * as indicadores from "../indicadores.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   cargos: typeof cargos;
   documentos: typeof documentos;
   equipos: typeof equipos;
+  eventos_adversos: typeof eventos_adversos;
   habilitacion: typeof habilitacion;
   indicadores: typeof indicadores;
   "lib/auth": typeof lib_auth;
