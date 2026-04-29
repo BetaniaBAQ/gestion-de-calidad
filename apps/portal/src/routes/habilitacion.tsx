@@ -1,5 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { CheckCircle2, Circle, Minus } from 'lucide-react'
+import { useRef, useState } from 'react'
+import {
+  CheckCircle2,
+  Circle,
+  FileText,
+  Loader2,
+  Minus,
+  Upload,
+} from 'lucide-react'
 import { KpiMeta } from '#/components/kpi-meta'
 import { Badge } from '@cualia/ui/components/badge'
 import { Button } from '@cualia/ui/components/button'
@@ -15,22 +23,18 @@ import {
   TabsList,
   TabsTrigger,
 } from '@cualia/ui/components/tabs'
-import {
-  useSedeActiva,
-  useSedes,
-  useSetSedeActiva,
-  useSetVistaCompleta,
-} from '#/lib/domain/config'
+import { useSedeActiva, useSedes, useSetSedeActiva } from '#/lib/domain/config'
 import {
   autoForSede,
   computeChecklistEstado,
   pctChecklistCumplido,
   useAutoVerificacionPorSede,
-  useHabilitacionPorSede,
-  useInitSede,
-  useUpdateItem,
+  useRespuestasPorSede,
+  useUpsertRespuesta,
+  useAddEvidencia,
 } from '#/lib/domain/habilitacion'
-import type { CheckEstado, HabCategoria, ServicioHabilitado } from '#/lib/types'
+import type { CheckEstado, HabCategoria } from '#/lib/types'
+import { useUploadThing } from '#/lib/uploadthing-client'
 
 export const Route = createFileRoute('/habilitacion')({
   component: HabilitacionPage,
@@ -63,81 +67,32 @@ function nextEstado(current: CheckEstado | 'pendiente'): CheckEstado {
   return 'cumple'
 }
 
-// Upcoming visits (static calendar for the 4 sedes)
-const VISITAS = [
-  {
-    sede: 'BAQ',
-    ciudad: 'Barranquilla',
-    tipo: 'Visita de habilitación',
-    fecha: '2025-07-15',
-    estado: 'programada',
-  },
-  {
-    sede: 'SIN',
-    ciudad: 'Sincelejo',
-    tipo: 'Visita de seguimiento',
-    fecha: '2025-08-20',
-    estado: 'programada',
-  },
-  {
-    sede: 'STM',
-    ciudad: 'Santa Marta',
-    tipo: 'Visita de habilitación',
-    fecha: '2025-09-10',
-    estado: 'pendiente',
-  },
-  {
-    sede: 'MTR',
-    ciudad: 'Montería',
-    tipo: 'Visita de verificación',
-    fecha: '2025-10-05',
-    estado: 'pendiente',
-  },
-]
-
 function HabilitacionPage() {
   const sedes = useSedes()
   const sedeActiva = useSedeActiva()
   const setSedeActiva = useSetSedeActiva()
-  const setVistaCompleta = useSetVistaCompleta()
   const autoAll = useAutoVerificacionPorSede()
-  const updateItem = useUpdateItem()
-  const initSede = useInitSede()
+  const upsertRespuesta = useUpsertRespuesta()
+  const addEvidencia = useAddEvidencia()
 
   const sede = sedes.find((s) => s.codigo === sedeActiva)
-  const hab = useHabilitacionPorSede(sedeActiva)
+  const respuestas = useRespuestasPorSede(sedeActiva)
   const auto = autoForSede(autoAll, sedeActiva)
-  const items = computeChecklistEstado(hab, auto)
-  const pct = pctChecklistCumplido(hab, auto)
+  const items = computeChecklistEstado(respuestas, auto)
+  const pct = pctChecklistCumplido(respuestas, auto)
 
-  const servicios = (sede?.servicios ?? []) as unknown as ServicioHabilitado[]
-
-  function toggle(
+  async function toggle(
     itemId: string,
     isAuto: boolean,
     currentEstado: CheckEstado | 'pendiente'
   ) {
-    if (isAuto) return // auto items are read-only
-    if (!hab) {
-      // Initialize the sede record first
-      initSede(sedeActiva, {
-        sedeId: sedeActiva,
-        fechaRevision: new Date().toISOString().slice(0, 10),
-        responsable: '',
-        items: [
-          {
-            id: itemId,
-            criterio: '',
-            estandar: '',
-            estado: nextEstado(currentEstado),
-            observacion: '',
-          },
-        ],
-      })
-      return
-    }
+    if (isAuto || !sede) return
     const next = nextEstado(currentEstado)
-    updateItem(sedeActiva, itemId, { estado: next })
+    await upsertRespuesta({
+      sedeId: sede._id as any,
+      criterioDefId: itemId,
+      estado: next === ('pendiente' as any) ? 'no_cumple' : next,
+    })
   }
 
   return (
@@ -145,7 +100,6 @@ function HabilitacionPage() {
       <Tabs defaultValue="checklist">
         <TabsList>
           <TabsTrigger value="checklist">Checklist habilitación</TabsTrigger>
-          <TabsTrigger value="visitas">Plan de visitas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="checklist" className="space-y-4">
@@ -161,162 +115,151 @@ function HabilitacionPage() {
               .filter((s) => s.activa)
               .map((s) => (
                 <Button
-                  key={s._id}
+                  key={s.codigo}
                   size="sm"
-                  variant={s.codigo === sedeActiva ? 'default' : 'outline'}
-                  onClick={() => {
-                    setVistaCompleta(false)
-                    setSedeActiva(s.codigo)
-                  }}
+                  variant={sedeActiva === s.codigo ? 'default' : 'outline'}
+                  onClick={() => setSedeActiva(s.codigo)}
                 >
                   {s.ciudad}
                 </Button>
               ))}
           </div>
 
-          {sede && (
-            <Card>
-              <CardContent className="pt-4 space-y-2">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">
-                      {sede.ciudad} — {sede.nombre}
-                    </div>
-                    {servicios.length > 0 && (
-                      <div className="text-[0.65rem] text-muted-foreground mt-0.5">
-                        Servicios: {servicios.join(' · ')}
-                      </div>
-                    )}
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className="text-sm font-semibold shrink-0"
-                  >
-                    {pct}% · {items.filter((i) => i.estado === 'cumple').length}
-                    /{items.filter((i) => i.estado !== 'na').length}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-4 text-[0.65rem] text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-primary" />{' '}
-                    Auto-verificado
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Cumple
-                    (manual)
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Minus className="h-3 w-3 text-red-400" /> No cumple
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Circle className="h-3 w-3 text-muted-foreground/40" />{' '}
-                    Pendiente
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {CATEGORIAS.map((cat) => {
             const catItems = items.filter((i) => i.def.categoria === cat.id)
-            const cumplen = catItems.filter((i) => i.estado === 'cumple').length
-            const total = catItems.filter((i) => i.estado !== 'na').length
+            const cumple = catItems.filter((i) => i.estado === 'cumple').length
+            const aplicables = catItems.filter((i) => i.estado !== 'na').length
+
             return (
               <Card key={cat.id}>
-                <CardHeader className="pb-2 flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xs uppercase tracking-wide">
-                      {cat.nombre}
-                    </CardTitle>
-                    <div className="text-[0.65rem] text-muted-foreground mt-0.5">
-                      {cumplen}/{total} criterios
-                    </div>
-                  </div>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    {cat.nombre}
+                    <Badge variant="secondary" className="text-xs">
+                      {cumple}/{aplicables}
+                    </Badge>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1.5">
-                  {catItems.map((i) => {
-                    const isAuto = i.def.auto && auto[i.def.id] === true
-                    return (
-                      <button
-                        key={i.def.id}
-                        type="button"
-                        disabled={isAuto}
-                        onClick={() => toggle(i.def.id, isAuto, i.estado)}
-                        className="w-full flex items-start gap-3 rounded-md px-3 py-2 bg-card/30 border border-border/60 text-left transition-colors hover:bg-card/60 disabled:cursor-default"
-                      >
-                        {estadoIcon(i.estado, isAuto)}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-foreground">
-                            {i.def.descripcion}
-                          </div>
-                          <div className="text-[0.65rem] text-muted-foreground flex items-center gap-2 mt-0.5">
-                            {isAuto && (
-                              <Badge
-                                variant="outline"
-                                className="text-[0.6rem] py-0 px-1 bg-primary/10 text-primary border-primary/20"
-                              >
-                                Auto
-                              </Badge>
-                            )}
-                            <span>{i.def.norma}</span>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
+                <CardContent className="space-y-1 pt-0">
+                  {catItems.map((item) => (
+                    <CriterioRow
+                      key={item.def.id}
+                      def={item.def}
+                      estado={item.estado}
+                      evidencias={item.evidencias}
+                      isAuto={item.def.auto && !!auto[item.def.id]}
+                      onToggle={() =>
+                        toggle(
+                          item.def.id,
+                          item.def.auto && !!auto[item.def.id],
+                          item.estado
+                        )
+                      }
+                      onAddEvidencia={async (url) => {
+                        if (!sede) return
+                        await addEvidencia({
+                          sedeId: sede._id as any,
+                          criterioDefId: item.def.id,
+                          url,
+                        })
+                      }}
+                    />
+                  ))}
                 </CardContent>
               </Card>
             )
           })}
         </TabsContent>
-
-        <TabsContent value="visitas" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">
-                Plan de visitas de habilitación 2025
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {VISITAS.map((v) => (
-                <div
-                  key={v.sede}
-                  className="flex items-center gap-4 rounded-md border border-border/60 bg-card/30 px-4 py-3"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold shrink-0">
-                    {v.sede}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-foreground">
-                      {v.ciudad}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {v.tipo}
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground shrink-0">
-                    {new Date(v.fecha).toLocaleDateString('es-CO', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={
-                      v.estado === 'programada'
-                        ? 'bg-emerald-400/20 text-emerald-400 border-emerald-400/40'
-                        : 'bg-yellow-400/20 text-yellow-400 border-yellow-400/40'
-                    }
-                  >
-                    {v.estado}
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+function CriterioRow({
+  def,
+  estado,
+  evidencias,
+  isAuto,
+  onToggle,
+  onAddEvidencia,
+}: {
+  def: { id: string; descripcion: string; norma: string; auto: boolean }
+  estado: CheckEstado | 'pendiente'
+  evidencias: string[]
+  isAuto: boolean
+  onToggle: () => void
+  onAddEvidencia: (url: string) => void
+}) {
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const { startUpload } = useUploadThing('evidenciaHabilitacion', {
+    onClientUploadComplete: (res) => {
+      if (res[0]) onAddEvidencia(res[0].ufsUrl)
+      setUploading(false)
+    },
+    onUploadError: () => setUploading(false),
+  })
+
+  return (
+    <div className="flex items-start gap-2 py-1.5 px-1 rounded hover:bg-muted/30 group">
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={isAuto}
+        className="shrink-0 mt-0.5"
+      >
+        {estadoIcon(estado, isAuto)}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm leading-tight">{def.descripcion}</p>
+        <p className="text-[0.65rem] text-muted-foreground">{def.norma}</p>
+        {evidencias.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {evidencias.map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 text-[0.6rem] text-primary hover:bg-primary/20"
+              >
+                <FileText className="h-2.5 w-2.5" />
+                Doc {i + 1}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            setUploading(true)
+            startUpload([file])
+          }}
+        />
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7"
+          disabled={uploading || isAuto}
+          onClick={() => fileRef.current?.click()}
+          title="Subir evidencia"
+        >
+          {uploading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Upload className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
     </div>
   )
 }

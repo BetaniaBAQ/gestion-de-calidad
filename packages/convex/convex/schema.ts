@@ -323,8 +323,7 @@ export default defineSchema({
   habilitacion_respuestas: defineTable({
     orgId: v.string(),
     sedeId: v.id('sedes'),
-    criterioId: v.id('habilitacion_criterios'),
-    servicioId: v.optional(v.string()), // para criterios específicos de servicio
+    criterioDefId: v.string(),
     estado: v.union(
       v.literal('cumple'),
       v.literal('no_cumple'),
@@ -332,13 +331,12 @@ export default defineSchema({
       v.literal('na')
     ),
     observacion: v.optional(v.string()),
-    evidencias: v.optional(v.array(v.string())), // URLs UploadThing (múltiples por criterio)
+    evidencias: v.optional(v.array(v.string())),
     revisadoPor: v.optional(v.string()),
     revisadoEn: v.optional(v.number()),
   })
     .index('by_org', ['orgId'])
-    .index('by_org_sede', ['orgId', 'sedeId'])
-    .index('by_criterio_sede', ['criterioId', 'sedeId']),
+    .index('by_org_sede', ['orgId', 'sedeId']),
 
   // ── PAMEC: Auditorías (Phase 0: hallazgos embebidos) ────────────────────
   pamec_auditorias: defineTable({

@@ -1,35 +1,44 @@
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '@cualia/convex'
 import { HABILITACION_CATALOGO } from '#/lib/data-catalogs'
-import { useHabStore } from '#/lib/stores/habilitacion.store'
 import { useEquipos } from '#/lib/domain/equipos'
-import type {
-  CheckEstado,
-  Habilitacion,
-  HabilitacionItemDef,
-} from '#/lib/types'
+import { useSedes } from '#/lib/domain/config'
+import type { CheckEstado, HabilitacionItemDef } from '#/lib/types'
 
 export function useHabilitacionCatalogo(): HabilitacionItemDef[] {
   return HABILITACION_CATALOGO
 }
 
-export function useHabilitacionPorSede(
-  sedeId: string
-): Habilitacion | undefined {
-  return useHabStore((s) => s.habilitaciones[sedeId])
+type RespuestaDoc = {
+  _id: string
+  criterioDefId: string
+  estado: string
+  observacion?: string
+  evidencias?: string[]
 }
 
-export function useHabilitacionesAll(): Partial<Record<string, Habilitacion>> {
-  return useHabStore((s) => s.habilitaciones)
+export function useRespuestasPorSede(sedeCodigo: string): RespuestaDoc[] {
+  const sedes = useSedes()
+  const sede = sedes.find((s) => s.codigo === sedeCodigo)
+  const raw = useQuery(
+    api.habilitacion.listRespuestasByOrgSede,
+    sede ? { sedeId: sede._id as any } : 'skip'
+  )
+  return (raw ?? []) as RespuestaDoc[]
 }
 
-export function useUpdateItem() {
-  return useHabStore((s) => s.updateItem)
+export function useUpsertRespuesta() {
+  return useMutation(api.habilitacion.upsertRespuesta)
 }
 
-export function useInitSede() {
-  return useHabStore((s) => s.initSede)
+export function useAddEvidencia() {
+  return useMutation(api.habilitacion.addEvidencia)
 }
 
-// Auto-verificación desde datos del sistema (por sede)
+export function useRemoveEvidencia() {
+  return useMutation(api.habilitacion.removeEvidencia)
+}
+
 export function useAutoVerificacionPorSede(): Record<
   string,
   Record<string, boolean>
@@ -37,11 +46,7 @@ export function useAutoVerificacionPorSede(): Record<
   const equipos = useEquipos()
   const bySede: Record<string, Record<string, boolean>> = {}
   for (const e of equipos) {
-    const current = bySede[e.sede] ?? {
-      dot1: false,
-      dot2: false,
-      rh4: true,
-    }
+    const current = bySede[e.sede] ?? { dot1: false, dot2: false, rh4: true }
     current.dot1 = true
     current.dot2 = true
     bySede[e.sede] = current
@@ -57,22 +62,29 @@ export function autoForSede(
 }
 
 export function computeChecklistEstado(
-  hab: Habilitacion | undefined,
+  respuestas: RespuestaDoc[],
   auto: Record<string, boolean>
 ) {
+  const byDefId = new Map(respuestas.map((r) => [r.criterioDefId, r]))
   return HABILITACION_CATALOGO.map((def) => {
-    const manual = hab?.items.find((i) => i.id === def.id)
-    let estado: CheckEstado | 'pendiente' = manual?.estado ?? 'pendiente'
+    const resp = byDefId.get(def.id)
+    const rawEstado = resp ? (resp.estado as CheckEstado) : 'pendiente'
+    let estado: CheckEstado | 'pendiente' = rawEstado
     if (def.auto && auto[def.id]) estado = 'cumple'
-    return { def, estado }
+    return {
+      def,
+      estado,
+      evidencias: resp?.evidencias ?? [],
+      respuestaId: resp?._id,
+    }
   })
 }
 
 export function pctChecklistCumplido(
-  hab: Habilitacion | undefined,
+  respuestas: RespuestaDoc[],
   auto: Record<string, boolean>
 ): number {
-  const items = computeChecklistEstado(hab, auto)
+  const items = computeChecklistEstado(respuestas, auto)
   const aplicables = items.filter((i) => i.estado !== 'na')
   const cumplen = aplicables.filter((i) => i.estado === 'cumple').length
   if (aplicables.length === 0) return 0
