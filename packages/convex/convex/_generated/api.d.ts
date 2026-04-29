@@ -22,6 +22,7 @@ import type * as medicamentos from "../medicamentos.js";
 import type * as pamec from "../pamec.js";
 import type * as personal from "../personal.js";
 import type * as pqrs from "../pqrs.js";
+import type * as proveedores from "../proveedores.js";
 import type * as sedes from "../sedes.js";
 import type * as seed from "../seed.js";
 import type * as tenants from "../tenants.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   pamec: typeof pamec;
   personal: typeof personal;
   pqrs: typeof pqrs;
+  proveedores: typeof proveedores;
   sedes: typeof sedes;
   seed: typeof seed;
   tenants: typeof tenants;
