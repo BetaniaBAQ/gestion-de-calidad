@@ -116,6 +116,46 @@ export function useRemoveAccion() {
   return useMutation(api.pamec.removeAccion)
 }
 
+// ─── Ciclos PHVA ────────────────────────────────────────────────────────────
+
+export type CicloSGC = {
+  _id: string
+  sedeCodigo: string
+  proceso: string
+  faseActual: 'planear' | 'hacer' | 'verificar' | 'actuar' | 'cerrado'
+  fechaInicio: string
+  fechaCierre?: string
+  criterioEsperado?: string
+  indicadorMedicion?: string
+  metodologia?: string
+  auditoriaId?: string
+  analisisCausas?: string
+  herramientaAnalisis?: string
+  efectividadVerificada?: boolean
+  resultadoEfectividad?: string
+}
+
+export function useCiclos(): CicloSGC[] {
+  return (useQuery(api.pamec.listCiclosByOrg, useAuthArgs()) ??
+    []) as CicloSGC[]
+}
+
+export function useCreateCiclo() {
+  return useMutation(api.pamec.createCiclo)
+}
+
+export function useUpdateCiclo() {
+  return useMutation(api.pamec.updateCiclo)
+}
+
+export function useAvanzarFase() {
+  return useMutation(api.pamec.avanzarFase)
+}
+
+export function useRemoveCiclo() {
+  return useMutation(api.pamec.removeCiclo)
+}
+
 // ─── Stats ───────────────────────────────────────────────────────────────────
 
 export function usePamecStats() {
