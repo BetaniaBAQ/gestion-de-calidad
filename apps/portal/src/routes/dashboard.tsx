@@ -35,7 +35,7 @@ import {
   autoForSede,
   computeChecklistEstado,
   useAutoVerificacionPorSede,
-  useHabilitacionesAll,
+  useRespuestasPorSede,
 } from '#/lib/domain/habilitacion'
 import { scoreSede, diasHasta } from '#/lib/utils-sgc'
 import { Badge } from '@cualia/ui/components/badge'
@@ -69,7 +69,7 @@ function DashboardPage() {
   const docsVencidos = useDocumentosVencidos()
 
   const pendientes = usePendientesValidacion()
-  const habilitaciones = useHabilitacionesAll()
+  const sedeActivaResp = useRespuestasPorSede(sedeActiva)
   const autoAll = useAutoVerificacionPorSede()
 
   // Alertas documentales cruzando personas x requisitos (por vista)
@@ -143,9 +143,9 @@ function DashboardPage() {
               (p) => p.sede === sede.codigo
             )
             const equiposSede = equipos.filter((e) => e.sede === sede.codigo)
-            const hab = habilitaciones[sede.codigo]
             const auto = autoForSede(autoAll, sede.codigo)
-            const checklistItems = computeChecklistEstado(hab, auto)
+            const habResp = sede.codigo === sedeActiva ? sedeActivaResp : []
+            const checklistItems = computeChecklistEstado(habResp, auto)
             const cumplen = checklistItems.filter(
               (i) => i.estado === 'cumple'
             ).length

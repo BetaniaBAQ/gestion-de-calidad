@@ -18,7 +18,7 @@ import {
   autoForSede,
   computeChecklistEstado,
   useAutoVerificacionPorSede,
-  useHabilitacionesAll,
+  useRespuestasPorSede,
 } from '#/lib/domain/habilitacion'
 import { useAcciones, usePamecStats } from '#/lib/domain/pamec'
 import {
@@ -82,10 +82,10 @@ function ReporteContent({
       ['VENCIDO', 'CRITICO', 'SIN_CARGAR'].includes(r.estado)
     )
   )
-  const habs = useHabilitacionesAll()
+  const habResp = useRespuestasPorSede(sede.codigo)
   const autoAll = useAutoVerificacionPorSede()
   const items = computeChecklistEstado(
-    habs[sede.codigo],
+    habResp,
     autoForSede(autoAll, sede.codigo)
   )
   const cumplen = items.filter((i) => i.estado === 'cumple').length
@@ -245,7 +245,7 @@ function ExportPdfButton({ sedeId }: { sedeId: string }) {
   const personas = usePersonasTodas()
   const cargos = useCargos()
   const docs = useDocumentos()
-  const habs = useHabilitacionesAll()
+  const habResp = useRespuestasPorSede(sedeId)
   const autoAll = useAutoVerificacionPorSede()
   const pamec = usePamecStats()
   const accPendientes = useAcciones().filter(
@@ -267,7 +267,7 @@ function ExportPdfButton({ sedeId }: { sedeId: string }) {
         .map((r) => ({ persona: p.nombre, ...r }))
     )
     const items = computeChecklistEstado(
-      habs[sede.codigo],
+      habResp,
       autoForSede(autoAll, sede.codigo)
     )
     const cumplen = items.filter((i) => i.estado === 'cumple').length
