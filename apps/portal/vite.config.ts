@@ -11,13 +11,9 @@ export default defineConfig(({ mode }) => {
   const envVars = loadEnv(mode, envDir, '')
   Object.assign(process.env, envVars)
 
-  const isVercel = !!process.env.VERCEL
-
   return {
     envDir,
-    ssr: isVercel
-      ? { noExternal: true }
-      : { noExternal: ['@cualia/convex', '@cualia/ui'] },
+    ssr: { noExternal: true },
     plugins: [
       tsconfigPaths({ projects: ['./tsconfig.json'] }),
       tailwindcss(),
