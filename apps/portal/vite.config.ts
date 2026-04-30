@@ -17,7 +17,10 @@ export default defineConfig(({ mode }) => {
     plugins: [
       tailwindcss(),
       tanstackStart({ srcDirectory: 'src' }),
-      nitro({ preset: 'vercel' }),
+      nitro({
+        preset: 'vercel',
+        externals: { inline: [/./] },
+      }),
       viteReact(),
     ],
   }
