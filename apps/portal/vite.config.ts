@@ -4,7 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
 import { defineConfig, loadEnv } from 'vite'
-import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig(({ mode }) => {
   const envDir = path.resolve(__dirname, '../..')
@@ -13,9 +12,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir,
+    resolve: { tsconfigPaths: true },
     ssr: { noExternal: true },
     plugins: [
-      tsconfigPaths({ projects: ['./tsconfig.json'] }),
       tailwindcss(),
       tanstackStart({ srcDirectory: 'src' }),
       nitro({ preset: 'vercel' }),
