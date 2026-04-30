@@ -14,7 +14,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir,
-    resolve: { tsconfigPaths: true },
+    resolve: {
+      tsconfigPaths: true,
+      alias: {
+        tslib: 'tslib/tslib.es6.mjs',
+      },
+    },
     ssr: isVercel
       ? { noExternal: true }
       : { noExternal: ['@cualia/convex', '@cualia/ui'] },
