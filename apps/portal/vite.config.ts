@@ -5,6 +5,8 @@ import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
 import { defineConfig, loadEnv } from 'vite'
 
+const isVercel = !!process.env.VERCEL
+
 export default defineConfig(({ mode }) => {
   const envDir = path.resolve(__dirname, '../..')
   const envVars = loadEnv(mode, envDir, '')
@@ -13,14 +15,13 @@ export default defineConfig(({ mode }) => {
   return {
     envDir,
     resolve: { tsconfigPaths: true },
-    ssr: { noExternal: true },
+    ssr: isVercel
+      ? { noExternal: true }
+      : { noExternal: ['@cualia/convex', '@cualia/ui'] },
     plugins: [
       tailwindcss(),
       tanstackStart({ srcDirectory: 'src' }),
-      nitro({
-        preset: 'vercel',
-        externals: { inline: [/./] },
-      }),
+      nitro({ preset: 'vercel' }),
       viteReact(),
     ],
   }
