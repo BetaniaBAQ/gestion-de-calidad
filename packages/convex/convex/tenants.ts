@@ -68,6 +68,17 @@ export const getBySlug = query({
   },
 })
 
+export const getBySlugAdmin = query({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    await assertAdmin(ctx)
+    return ctx.db
+      .query('tenants')
+      .withIndex('by_slug', (q) => q.eq('slug', slug))
+      .unique()
+  },
+})
+
 // Busca un tenant por su WorkOS Organization ID
 export const getByOrgId = query({
   args: { orgId: v.string() },

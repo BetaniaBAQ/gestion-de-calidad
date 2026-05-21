@@ -52,7 +52,7 @@ import {
   TabsTrigger,
 } from '@cualia/ui/components/tabs'
 
-export const Route = createFileRoute('/orgs/$orgId')({
+export const Route = createFileRoute('/orgs/$slug')({
   component: OrgDetailPage,
 })
 
@@ -94,8 +94,8 @@ const MODULOS = [
 ] as const
 
 function OrgDetailPage() {
-  const { orgId } = Route.useParams()
-  const tenant = useQuery(api.tenants.getById, { id: orgId as any })
+  const { slug } = Route.useParams()
+  const tenant = useQuery(api.tenants.getBySlugAdmin, { slug })
   const stats = useQuery(
     api.tenants.getStats,
     tenant ? { orgId: tenant.orgId } : 'skip'
