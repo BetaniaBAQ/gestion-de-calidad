@@ -17,6 +17,7 @@
   "dependencies": {
     "@cualia/convex": "workspace:*",
     "@cualia/ui": "workspace:*",
+    "@fontsource-variable/inter": "^5.2.8",
     "@rsbuild/core": "^2.0.1",
     "@t3-oss/env-core": "^0.13.11",
     "@tailwindcss/vite": "^4.1.18",

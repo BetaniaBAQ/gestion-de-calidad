@@ -32,6 +32,9 @@ importers:
       '@cualia/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@fontsource-variable/inter':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@rsbuild/core':
         specifier: ^2.0.1
         version: 2.0.1
