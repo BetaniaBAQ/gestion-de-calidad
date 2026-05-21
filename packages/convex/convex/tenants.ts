@@ -1,21 +1,58 @@
 import { action, mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 import { api } from './_generated/api'
+import { assertAdmin } from './lib/auth'
 
-// Lista todos los tenants — solo para admin (verifica CUALIA_ADMIN_ORG_ID)
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Unauthenticated')
-    const callerOrg =
-      (identity as Record<string, unknown>).org_id ??
-      (identity as Record<string, unknown>).organizationId
-    const adminOrgId = process.env.CUALIA_ADMIN_ORG_ID
-    if (!adminOrgId || callerOrg !== adminOrgId) {
-      throw new Error('Forbidden: admin only')
-    }
+    await assertAdmin(ctx)
     return ctx.db.query('tenants').collect()
+  },
+})
+
+export const getById = query({
+  args: { id: v.id('tenants') },
+  handler: async (ctx, { id }) => {
+    await assertAdmin(ctx)
+    return ctx.db.get(id)
+  },
+})
+
+export const updateTenant = mutation({
+  args: {
+    id: v.id('tenants'),
+    nombre: v.optional(v.string()),
+    plan: v.optional(
+      v.union(v.literal('trial'), v.literal('pro'), v.literal('enterprise'))
+    ),
+    activo: v.optional(v.boolean()),
+    modulosActivos: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, { id, ...patch }) => {
+    await assertAdmin(ctx)
+    await ctx.db.patch(id, patch)
+  },
+})
+
+export const getStats = query({
+  args: { orgId: v.string() },
+  handler: async (ctx, { orgId }) => {
+    await assertAdmin(ctx)
+    const usuarios = await ctx.db
+      .query('usuarios')
+      .withIndex('by_org', (q) => q.eq('orgId', orgId))
+      .collect()
+    const sedes = await ctx.db
+      .query('sedes')
+      .withIndex('by_org', (q) => q.eq('orgId', orgId))
+      .collect()
+    return {
+      usuarios: usuarios.length,
+      usuariosActivos: usuarios.filter((u) => u.activo).length,
+      sedes: sedes.length,
+      sedesActivas: sedes.filter((s) => s.activa).length,
+    }
   },
 })
 

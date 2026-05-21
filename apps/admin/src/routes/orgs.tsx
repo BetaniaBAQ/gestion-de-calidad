@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAction, useQuery, useConvexAuth } from 'convex/react'
 import { api } from '@cualia/convex'
 import { Badge } from '@cualia/ui/components/badge'
@@ -44,6 +44,7 @@ function useAuthArgs(): Record<string, never> | 'skip' {
 
 function AdminOrgsPage() {
   const tenants = useQuery(api.tenants.listAll, useAuthArgs())
+  const navigate = useNavigate()
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -80,7 +81,13 @@ function AdminOrgsPage() {
           </TableHeader>
           <TableBody>
             {tenants.map((t) => (
-              <TableRow key={t._id}>
+              <TableRow
+                key={t._id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() =>
+                  navigate({ to: '/orgs/$orgId', params: { orgId: t._id } })
+                }
+              >
                 <TableCell className="font-medium">{t.nombre}</TableCell>
                 <TableCell className="font-mono text-sm">{t.slug}</TableCell>
                 <TableCell>

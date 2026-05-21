@@ -1,6 +1,6 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
-import { getOrgId } from './lib/auth'
+import { getOrgId, assertAdmin } from './lib/auth'
 
 const ROL = v.union(
   v.literal('admin'),
@@ -40,6 +40,32 @@ export const update = mutation({
     activo: v.optional(v.boolean()),
   },
   handler: async (ctx, { id, ...patch }) => {
+    await ctx.db.patch(id, patch)
+  },
+})
+
+// ── Admin queries (cross-org) ───────────────────────────────────────────────
+
+export const listByOrgAdmin = query({
+  args: { orgId: v.string() },
+  handler: async (ctx, { orgId }) => {
+    await assertAdmin(ctx)
+    return ctx.db
+      .query('usuarios')
+      .withIndex('by_org', (q) => q.eq('orgId', orgId))
+      .collect()
+  },
+})
+
+export const updateAdmin = mutation({
+  args: {
+    id: v.id('usuarios'),
+    rol: v.optional(ROL),
+    sedeId: v.optional(v.id('sedes')),
+    activo: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { id, ...patch }) => {
+    await assertAdmin(ctx)
     await ctx.db.patch(id, patch)
   },
 })

@@ -22,10 +22,27 @@ export default defineSchema({
     colores: v.optional(v.any()),
     plan: v.union(v.literal('trial'), v.literal('pro'), v.literal('enterprise')),
     activo: v.boolean(),
+    modulosActivos: v.optional(v.array(v.string())),
   })
     .index('by_org', ['orgId'])
     .index('by_slug', ['slug'])
     .index('by_custom_domain', ['customDomain']),
+
+  // ── Config: Acceso a módulos por rol ────────────────────────────────────
+  modulos_acceso: defineTable({
+    orgId: v.string(),
+    rol: v.union(
+      v.literal('admin'),
+      v.literal('calidad'),
+      v.literal('director'),
+      v.literal('coordinador'),
+      v.literal('farmaceutico'),
+      v.literal('view')
+    ),
+    modulos: v.array(v.string()),
+  })
+    .index('by_org', ['orgId'])
+    .index('by_org_rol', ['orgId', 'rol']),
 
   // ── Config: Sedes ────────────────────────────────────────────────────────
   sedes: defineTable({

@@ -1,6 +1,6 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
-import { getOrgId } from './lib/auth'
+import { getOrgId, assertAdmin } from './lib/auth'
 
 export const listByOrg = query({
   args: {},
@@ -40,5 +40,16 @@ export const update = mutation({
   },
   handler: async (ctx, { id, ...patch }) => {
     await ctx.db.patch(id, patch)
+  },
+})
+
+export const listByOrgAdmin = query({
+  args: { orgId: v.string() },
+  handler: async (ctx, { orgId }) => {
+    await assertAdmin(ctx)
+    return ctx.db
+      .query('sedes')
+      .withIndex('by_org', (q) => q.eq('orgId', orgId))
+      .collect()
   },
 })
