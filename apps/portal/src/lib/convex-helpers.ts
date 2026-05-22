@@ -1,9 +1,21 @@
-import { useConvexAuth } from 'convex/react'
+import { useEffect, useRef } from 'react'
+import { useConvexAuth, useMutation } from 'convex/react'
+import { api } from '@cualia/convex'
 
-// Retorna {} cuando el usuario está autenticado, 'skip' cuando no.
-// Usar como args en useQuery para evitar queries sin auth:
-//   useQuery(api.sedes.listByOrg, useAuthArgs())
 export function useAuthArgs(): Record<string, never> | 'skip' {
   const { isAuthenticated } = useConvexAuth()
   return isAuthenticated ? {} : 'skip'
+}
+
+export function useEnsureUsuario() {
+  const { isAuthenticated } = useConvexAuth()
+  const ensureUsuario = useMutation(api.usuarios.ensureUsuario)
+  const called = useRef(false)
+
+  useEffect(() => {
+    if (isAuthenticated && !called.current) {
+      called.current = true
+      ensureUsuario().catch(() => {})
+    }
+  }, [isAuthenticated, ensureUsuario])
 }

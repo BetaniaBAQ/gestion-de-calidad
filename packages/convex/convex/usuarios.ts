@@ -11,6 +11,46 @@ const ROL = v.union(
   v.literal('view')
 )
 
+export const ensureUsuario = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Unauthenticated')
+
+    const workosUserId = identity.subject
+    const orgId =
+      (identity as Record<string, unknown>).org_id ??
+      (identity as Record<string, unknown>).organizationId
+    if (!orgId || typeof orgId !== 'string') {
+      throw new Error('JWT missing org_id claim')
+    }
+
+    const existing = await ctx.db
+      .query('usuarios')
+      .withIndex('by_workos_user', (q) => q.eq('workosUserId', workosUserId))
+      .unique()
+
+    if (existing) {
+      if (existing.email !== (identity.email ?? existing.email)) {
+        await ctx.db.patch(existing._id, { email: identity.email! })
+      }
+      return existing._id
+    }
+
+    return ctx.db.insert('usuarios', {
+      orgId,
+      workosUserId,
+      nombre:
+        [identity.givenName, identity.familyName].filter(Boolean).join(' ') ||
+        identity.email ||
+        'Usuario',
+      email: identity.email ?? '',
+      rol: 'view',
+      activo: true,
+    })
+  },
+})
+
 export const getByWorkosUserId = query({
   args: { workosUserId: v.string() },
   handler: async (ctx, { workosUserId }) => {

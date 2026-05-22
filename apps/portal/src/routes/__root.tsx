@@ -70,6 +70,7 @@ import {
 } from '@cualia/ui/components/sidebar'
 import { Toggle } from '@cualia/ui/components/toggle'
 import { StoreHydrator } from '#/lib/hydration'
+import { useEnsureUsuario } from '#/lib/convex-helpers'
 import { OrgContext } from '#/lib/org-context'
 import appCss from '../styles.css?url'
 
@@ -359,14 +360,16 @@ function HeaderBar() {
   )
 }
 
+function EnsureUsuario() {
+  useEnsureUsuario()
+  return null
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const isAuthRoute = location.pathname.startsWith('/auth')
   const { session } = Route.useRouteContext()
 
-  // ConvexProvider siempre está en el árbol para evitar que useQuery falle
-  // durante la transición dashboard → rutas /auth (desmontado antes que los hijos).
-  // Las queries en rutas /auth no se ejecutan porque orgId es '' (skip).
   return (
     <html lang="es" className="dark">
       <head>
@@ -389,6 +392,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 children
               ) : (
                 <>
+                  <EnsureUsuario />
                   <StoreHydrator />
                   <SidebarProvider>
                     <AppSidebar />
