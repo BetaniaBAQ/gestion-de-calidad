@@ -234,9 +234,7 @@ function DashboardPage() {
                     <strong className="text-foreground">
                       {p.persona.nombre}
                     </strong>{' '}
-                    <span className="text-muted-foreground">
-                      — {p.nombre}
-                    </span>
+                    <span className="text-muted-foreground">— {p.nombre}</span>
                     <span className="text-[0.65rem] text-muted-foreground ml-2">
                       {sede?.ciudad}
                     </span>
