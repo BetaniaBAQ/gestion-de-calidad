@@ -117,10 +117,10 @@ function PersonalPage() {
   const capsEjec = caps.filter((c) => c.estado === 'ejecutada').length
   const pctCapsEjec =
     caps.length > 0 ? Math.round((capsEjec / caps.length) * 1000) / 10 : 0
-  const completas = personasAll.filter((p) => completitudPersona(p) === 100)
+  const completas = personas.filter((p) => completitudPersona(p) === 100)
   const pctDocCompleta =
-    personasAll.length > 0
-      ? Math.round((completas.length / personasAll.length) * 1000) / 10
+    personas.length > 0
+      ? Math.round((completas.length / personas.length) * 1000) / 10
       : 0
 
   return (
@@ -140,7 +140,7 @@ function PersonalPage() {
         />
         <KpiMeta
           modulo="TALENTO HUMANO"
-          valor={`${personasAll.length}`}
+          valor={`${personas.length}`}
           descripcion="personas registradas"
           meta=""
         />

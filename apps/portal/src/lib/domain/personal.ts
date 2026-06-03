@@ -212,7 +212,16 @@ export function usePendientesValidacion() {
   return personas.flatMap((p) =>
     resolveRequisitos(p)
       .filter((r) => r.estado === 'POR_VALIDAR')
-      .map((r) => ({ persona: p, ...r }))
+      .map((r) => ({
+        persona: p,
+        defId: r.def.id,
+        nombre: r.def.nombre,
+        norma: r.def.norma,
+        estado: r.estado,
+        fechaVigencia: r.fechaVigencia,
+        fileUrl:
+          p.requisitos.find((rr) => rr.defId === r.def.id)?.fileUrl ?? null,
+      }))
   )
 }
 
@@ -238,7 +247,7 @@ export function useAlertasVencimiento(): AlertaVencimiento[] {
         (new Date(r.fechaVigencia).getTime() - hoy) / (1000 * 60 * 60 * 24)
       )
       if (dias > 90) continue
-      const defs = getRequisitosDefsByCargo(p.cargoCodigo)
+      const defs = getRequisitosDefsByCargo(p.cargo)
       const def = defs.find((d) => d.id === r.defId)
       alertas.push({
         persona: p,

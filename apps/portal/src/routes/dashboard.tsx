@@ -221,7 +221,7 @@ function DashboardPage() {
               const sede = sedes.find((s) => s.codigo === p.persona.sede)
               return (
                 <div
-                  key={`${p.persona.id}-${p.def.id}-${i}`}
+                  key={`${p.persona.id}-${p.defId}-${i}`}
                   className="flex items-center gap-3 rounded-lg border border-yellow-400/20 bg-yellow-400/5 px-4 py-2"
                 >
                   <Badge
@@ -235,7 +235,7 @@ function DashboardPage() {
                       {p.persona.nombre}
                     </strong>{' '}
                     <span className="text-muted-foreground">
-                      — {p.def.nombre}
+                      — {p.nombre}
                     </span>
                     <span className="text-[0.65rem] text-muted-foreground ml-2">
                       {sede?.ciudad}
