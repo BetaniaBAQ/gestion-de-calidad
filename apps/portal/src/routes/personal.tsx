@@ -58,7 +58,7 @@ import {
   TabsTrigger,
 } from '@cualia/ui/components/tabs'
 import { Textarea } from '@cualia/ui/components/textarea'
-import { useSedes } from '#/lib/domain/config'
+import { useRolActual, useSedes } from '#/lib/domain/config'
 import {
   useCapacitaciones,
   useCreateCapacitacion,
@@ -397,6 +397,8 @@ function PersonaDetalleDialog({
 }) {
   const removePersona = useRemovePersona()
   const updatePersona = useUpdatePersona()
+  const rolActual = useRolActual()
+  const canDelete = rolActual === 'admin' || rolActual === 'calidad'
   const [editReqs, setEditReqs] = useState(false)
   const [draft, setDraft] = useState<RequisitoEstado[]>([])
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -467,14 +469,16 @@ function PersonaDetalleDialog({
               >
                 <Edit2 className="h-3.5 w-3.5 mr-1" /> Editar
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:text-destructive border-destructive/30"
-                onClick={() => setConfirmDelete(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
-              </Button>
+              {canDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive border-destructive/30"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
+                </Button>
+              )}
             </div>
           </div>
           {confirmDelete && (
@@ -862,6 +866,7 @@ function PersonaFormDialog({
           estado: form.estado,
         })
       } else {
+        const defs = getRequisitosDefsByCargo(cargo.codigo)
         await createPersona({
           nombre: form.nombre,
           cedula: form.cedula,
@@ -871,6 +876,10 @@ function PersonaFormDialog({
           sedeCodigo: sede.codigo,
           fechaIngreso: form.fechaIngreso,
           estado: form.estado,
+          requisitos: defs.map((d) => ({
+            defId: d.id,
+            estado: d.critico ? ('CRITICO' as const) : ('SIN_CARGAR' as const),
+          })),
         })
       }
       onOpenChange(false)

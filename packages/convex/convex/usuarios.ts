@@ -51,6 +51,18 @@ export const ensureUsuario = mutation({
   },
 })
 
+export const me = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+    return ctx.db
+      .query('usuarios')
+      .withIndex('by_workos_user', (q) => q.eq('workosUserId', identity.subject))
+      .unique()
+  },
+})
+
 export const getByWorkosUserId = query({
   args: { workosUserId: v.string() },
   handler: async (ctx, { workosUserId }) => {

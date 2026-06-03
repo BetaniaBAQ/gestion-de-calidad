@@ -164,11 +164,11 @@ export function completitudPersona(persona: PersonaSGC): number {
 
 export function estadoCompletitud(
   persona: PersonaSGC
-): 'Crítico' | 'Alerta' | 'OK' {
+): 'Crítico' | 'Alerta' | 'Completo' {
   const pct = completitudPersona(persona)
   if (pct < 80) return 'Crítico'
   if (pct < 100) return 'Alerta'
-  return 'OK'
+  return 'Completo'
 }
 
 export function pendientesValidacion(persona: PersonaSGC): number {

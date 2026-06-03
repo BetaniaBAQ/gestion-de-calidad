@@ -26,7 +26,9 @@ export function KpiMeta({
       <CardContent>
         <div className="text-2xl font-bold text-foreground">{valor}</div>
         <p className="text-[0.65rem] text-foreground mt-0.5">{descripcion}</p>
-        <p className="text-[0.65rem] text-muted-foreground">Meta: {meta}</p>
+        {meta && (
+          <p className="text-[0.65rem] text-muted-foreground">Meta: {meta}</p>
+        )}
       </CardContent>
     </Card>
   )

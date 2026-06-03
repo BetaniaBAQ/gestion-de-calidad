@@ -36,10 +36,13 @@ export function useSetVistaCompleta() {
   return useConfigStore((s) => s.setVistaCompleta)
 }
 
-// Stub: el usuario activo viene de la sesión WorkOS (Route.useRouteContext().session)
-// Se mantiene para compatibilidad con rutas que todavía lo usen
 export function useUsuarioActual() {
-  return null
+  return useQuery(api.usuarios.me, useAuthArgs()) ?? null
+}
+
+export function useRolActual() {
+  const user = useUsuarioActual()
+  return user?.rol ?? 'view'
 }
 
 export function useScoreGlobal() {
