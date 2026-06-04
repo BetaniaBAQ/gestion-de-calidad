@@ -673,7 +673,10 @@ function ReqItemEdit({
     onChange({
       fileUrl: url || undefined,
       ...(url
-        ? { estado: 'VIGENTE' as const, fechaVigencia: new Date().toISOString().slice(0, 10) }
+        ? {
+            estado: 'VIGENTE' as const,
+            fechaVigencia: new Date().toISOString().slice(0, 10),
+          }
         : {}),
     })
     setShowUrl(false)
