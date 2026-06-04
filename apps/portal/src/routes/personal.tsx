@@ -650,7 +650,8 @@ function ReqItemEdit({
     onClientUploadComplete: (res) => {
       onChange({
         fileUrl: res[0].ufsUrl,
-        estado: item.estado === 'SIN_CARGAR' ? 'POR_VALIDAR' : item.estado,
+        estado: 'VIGENTE',
+        fechaVigencia: new Date().toISOString().slice(0, 10),
       })
       setUploading(false)
     },
@@ -671,7 +672,9 @@ function ReqItemEdit({
     const url = urlInput.trim()
     onChange({
       fileUrl: url || undefined,
-      estado: url && item.estado === 'SIN_CARGAR' ? 'POR_VALIDAR' : item.estado,
+      ...(url
+        ? { estado: 'VIGENTE' as const, fechaVigencia: new Date().toISOString().slice(0, 10) }
+        : {}),
     })
     setShowUrl(false)
   }
